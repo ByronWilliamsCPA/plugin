@@ -1,0 +1,367 @@
+{
+  "context_window_bands": {
+    "band_strategy": "centralized_ranges",
+    "description": "Single source of truth for context window band definitions",
+    "note": "Update ranges here and all model assignments automatically adjust",
+
+    "compact": {
+      "max_tokens": 65000,
+      "description": "Compact context window for focused tasks",
+      "target_allocation": "6-8 models"
+    },
+    "standard": {
+      "min_tokens": 65001,
+      "max_tokens": 200000,
+      "description": "Standard context window for most development tasks",
+      "target_allocation": "8-10 models"
+    },
+    "extended": {
+      "min_tokens": 200001,
+      "max_tokens": 999999,
+      "description": "Extended context window for complex multi-file analysis",
+      "target_allocation": "5-7 models"
+    },
+    "large": {
+      "min_tokens": 1000000,
+      "description": "Large context window (1M+ tokens) for massive codebases",
+      "target_allocation": "3-4 models"
+    }
+  },
+  "cost_tier_bands": {
+    "band_strategy": "centralized_ranges",
+    "description": "Single source of truth for cost tier band definitions",
+    "note": "Update ranges here and all model assignments automatically adjust",
+
+    "free": {
+      "max_cost": 0.0,
+      "description": "Free models with zero cost",
+      "target_allocation": "8 models (32%)"
+    },
+    "economy": {
+      "min_cost": 0.01,
+      "max_cost": 1.0,
+      "description": "Low-cost efficient models ($0.01-$1.00 per million tokens)",
+      "target_allocation": "4-5 models"
+    },
+    "value": {
+      "min_cost": 1.01,
+      "max_cost": 10.0,
+      "description": "Balanced cost-performance models ($1.01-$10.00 per million tokens)",
+      "target_allocation": "6 models (24%)"
+    },
+    "premium": {
+      "min_cost": 5.0,
+      "description": "High-cost flagship models ($5.00+ per million tokens)",
+      "target_allocation": "6 models (24%)"
+    }
+  },
+  "performance_bands": {
+    "band_strategy": "centralized_ranges",
+    "description": "Single source of truth for performance band definitions",
+    "note": "Update ranges here and all model assignments automatically adjust",
+    "benchmark_source": "humaneval_score",
+
+    "basic": {
+      "max_score": 65.0,
+      "description": "Basic performance suitable for simple tasks",
+      "target_allocation": "3-4 models"
+    },
+    "good": {
+      "min_score": 65.1,
+      "max_score": 75.0,
+      "description": "Good performance for most professional tasks",
+      "target_allocation": "6-8 models"
+    },
+    "excellent": {
+      "min_score": 75.1,
+      "max_score": 85.0,
+      "description": "Excellent performance for complex tasks",
+      "target_allocation": "8-10 models"
+    },
+    "exceptional": {
+      "min_score": 85.1,
+      "description": "Exceptional performance for critical tasks",
+      "target_allocation": "4-6 models"
+    }
+  },
+
+  "tier_classification_bands": {
+    "band_strategy": "centralized_criteria",
+    "description": "Single source of truth for model tier classifications",
+    "note": "Update criteria here and all model tier assignments automatically adjust",
+
+    "free_champion": {
+      "cost_criteria": {"input_cost": 0.0, "output_cost": 0.0},
+      "performance_criteria": {"min_humaneval": 60.0},
+      "description": "High-performing free models",
+      "target_allocation": "8 models"
+    },
+    "value_tier": {
+      "cost_criteria": {"max_input_cost": 2.0, "max_output_cost": 8.0},
+      "performance_criteria": {"min_humaneval": 70.0},
+      "description": "Cost-effective balanced models",
+      "target_allocation": "6 models"
+    },
+    "high_perf": {
+      "cost_criteria": {"max_input_cost": 10.0, "max_output_cost": 25.0},
+      "performance_criteria": {"min_humaneval": 75.0},
+      "description": "High-performance professional models",
+      "target_allocation": "6 models"
+    },
+    "premium": {
+      "cost_criteria": {"min_input_cost": 3.0},
+      "performance_criteria": {"min_humaneval": 80.0},
+      "description": "Premium flagship models for critical tasks",
+      "target_allocation": "5 models"
+    }
+  },
+
+  "org_level_assignment_bands": {
+    "band_strategy": "centralized_criteria",
+    "description": "Single source of truth for organizational level assignments",
+    "note": "Update criteria here and all org_level assignments automatically adjust",
+
+    "junior": {
+      "cost_criteria": {"max_input_cost": 1.0},
+      "performance_criteria": {"min_humaneval": 60.0},
+      "context_criteria": {"min_context": 32000},
+      "description": "Cost-effective models for junior developers",
+      "target_allocation": "8 models"
+    },
+    "senior": {
+      "cost_criteria": {"max_input_cost": 10.0},
+      "performance_criteria": {"min_humaneval": 70.0},
+      "context_criteria": {"min_context": 65000},
+      "description": "Professional-grade models for senior developers",
+      "target_allocation": "10 models"
+    },
+    "executive": {
+      "cost_criteria": {"unlimited": true},
+      "performance_criteria": {"min_humaneval": 80.0},
+      "context_criteria": {"min_context": 128000},
+      "description": "Premium models for executive leadership",
+      "target_allocation": "7 models"
+    }
+  },
+
+  "provider_trust_bands": {
+    "band_strategy": "centralized_ranges",
+    "description": "Single source of truth for provider trust classifications",
+    "note": "Update trust scores here and all provider classifications automatically adjust",
+
+    "tier1_trusted": {
+      "min_trust_score": 9,
+      "enterprise_required": true,
+      "description": "Most trusted enterprise providers",
+      "providers": ["openai", "anthropic", "google"]
+    },
+    "tier2_verified": {
+      "min_trust_score": 8,
+      "enterprise_required": true,
+      "description": "Verified enterprise providers",
+      "providers": ["microsoft", "meta", "mistral"]
+    },
+    "tier3_emerging": {
+      "min_trust_score": 7,
+      "enterprise_required": false,
+      "description": "Emerging and specialized providers",
+      "providers": ["deepseek", "qwen", "perplexity", "cohere"]
+    },
+    "tier4_experimental": {
+      "min_trust_score": 5,
+      "enterprise_required": false,
+      "description": "Experimental and community providers",
+      "providers": ["huggingface", "others"]
+    }
+  },
+  "org_level_requirements": {
+    "junior": {
+      "min_models": 2,
+      "max_models": 4,
+      "preferred_cost_tiers": ["Free", "Economy"],
+      "roles": ["code_reviewer", "technical_validator", "security_checker"],
+      "description": "Junior developer / intern level analysis"
+    },
+    "senior": {
+      "min_models": 3,
+      "max_models": 6,
+      "preferred_cost_tiers": ["Economy", "Value"],
+      "roles": ["senior_developer", "system_architect", "security_analyst", "devops_engineer", "qa_engineer"],
+      "description": "Senior staff / professional level analysis"
+    },
+    "executive": {
+      "min_models": 4,
+      "max_models": 8,
+      "preferred_cost_tiers": ["Value", "Premium"],
+      "roles": ["technical_director", "lead_architect", "research_lead", "security_chief", "risk_analyst", "it_director"],
+      "description": "Executive leadership / C-level analysis"
+    }
+  },
+  "specialization_mapping": {
+    "coding": ["coding", "software", "development", "programming"],
+    "reasoning": ["reasoning", "logic", "analysis", "thinking"],
+    "general": ["general", "balanced", "multipurpose", "versatile"],
+    "vision": ["vision", "visual", "image", "multimodal"],
+    "debugging": ["debugging", "troubleshooting", "error", "fix"],
+    "conversation": ["conversation", "chat", "dialogue", "interaction"],
+    "security": ["security", "vulnerability", "audit", "safety"]
+  },
+
+  "role_assignment_bands": {
+    "band_strategy": "centralized_criteria",
+    "description": "Single source of truth for automatic role assignments",
+    "note": "Update criteria here and all role assignments automatically adjust",
+
+    "technical_roles": {
+      "criteria": {
+        "specialization": ["coding", "debugging"],
+        "min_humaneval": 70.0,
+        "max_cost": 10.0
+      },
+      "roles": ["senior_developer", "code_reviewer", "qa_engineer"],
+      "description": "Technical implementation and code quality roles"
+    },
+    "architecture_roles": {
+      "criteria": {
+        "tier": ["premium", "high_perf"],
+        "min_humaneval": 80.0,
+        "min_context": 200000
+      },
+      "roles": ["lead_architect", "system_architect", "technical_director"],
+      "description": "System design and architectural decision roles"
+    },
+    "analysis_roles": {
+      "criteria": {
+        "specialization": ["reasoning", "security"],
+        "min_humaneval": 75.0
+      },
+      "roles": ["security_analyst", "risk_analyst", "research_lead"],
+      "description": "Analysis and research-focused roles"
+    },
+    "validation_roles": {
+      "criteria": {
+        "cost_tier": ["free", "economy"],
+        "min_humaneval": 60.0
+      },
+      "roles": ["technical_validator", "security_checker"],
+      "description": "Validation and verification roles"
+    }
+  },
+
+  "rank_assignment_bands": {
+    "band_strategy": "centralized_criteria",
+    "description": "Single source of truth for automatic rank assignments",
+    "note": "Update criteria here and all rank assignments automatically adjust",
+
+    "tier1_flagship": {
+      "rank_range": [1, 5],
+      "criteria": {
+        "min_humaneval": 85.0,
+        "tier": ["premium"],
+        "min_context": 200000,
+        "provider": ["openai", "anthropic", "google"]
+      },
+      "description": "Top-tier flagship models from major providers",
+      "target_allocation": "5 models"
+    },
+    "tier2_professional": {
+      "rank_range": [6, 15],
+      "criteria": {
+        "min_humaneval": 75.0,
+        "tier": ["high_perf", "premium"],
+        "max_cost": 25.0
+      },
+      "description": "Professional-grade high-performance models",
+      "target_allocation": "10 models"
+    },
+    "tier3_efficient": {
+      "rank_range": [16, 25],
+      "criteria": {
+        "min_humaneval": 65.0,
+        "cost_tier": ["economy", "value", "free_champion"]
+      },
+      "description": "Cost-effective and efficient models",
+      "target_allocation": "10 models"
+    },
+    "tier4_specialized": {
+      "rank_range": [26, 35],
+      "criteria": {
+        "specialization": ["experimental", "vision", "debugging"],
+        "min_humaneval": 50.0
+      },
+      "description": "Specialized and experimental models",
+      "target_allocation": "10 models"
+    }
+  },
+
+  "strength_classification_bands": {
+    "band_strategy": "centralized_criteria",
+    "description": "Single source of truth for automatic strength classifications",
+    "note": "Update criteria here and all strength assignments automatically adjust",
+
+    "next_generation": {
+      "criteria": {
+        "min_humaneval": 88.0,
+        "provider": ["openai", "anthropic"],
+        "tier": ["premium"]
+      },
+      "description": "Cutting-edge flagship capability",
+      "target_allocation": "2-3 models"
+    },
+    "advanced": {
+      "criteria": {
+        "min_humaneval": 85.0,
+        "max_output_cost": 25.0,
+        "tier": ["premium", "high_perf"]
+      },
+      "description": "Advanced professional-grade performance",
+      "target_allocation": "5-7 models"
+    },
+    "balanced": {
+      "criteria": {
+        "min_humaneval": 75.0,
+        "cost_tier": ["value", "high_perf"],
+        "min_context": 100000
+      },
+      "description": "Well-balanced cost and performance",
+      "target_allocation": "6-8 models"
+    },
+    "efficient": {
+      "criteria": {
+        "cost_efficiency_score": "top_tercile",
+        "min_humaneval": 70.0
+      },
+      "description": "Cost-effective optimized option",
+      "target_allocation": "4-6 models"
+    },
+    "specialized": {
+      "criteria": {
+        "specialization": ["vision", "coding", "debugging"],
+        "min_humaneval": 65.0
+      },
+      "description": "Domain-specific specialized capability",
+      "target_allocation": "3-5 models"
+    },
+    "experimental": {
+      "criteria": {
+        "specialization": ["experimental"],
+        "provider": ["tngtech", "openrouter"]
+      },
+      "description": "Experimental and emerging technology",
+      "target_allocation": "2-3 models"
+    }
+  },
+  "provider_info": {
+    "anthropic": {"trust_score": 9, "region": "US", "enterprise": true},
+    "openai": {"trust_score": 10, "region": "US", "enterprise": true},
+    "google": {"trust_score": 9, "region": "US", "enterprise": true},
+    "deepseek": {"trust_score": 8, "region": "CN", "enterprise": false},
+    "qwen": {"trust_score": 8, "region": "CN", "enterprise": false},
+    "meta": {"trust_score": 9, "region": "US", "enterprise": true},
+    "microsoft": {"trust_score": 9, "region": "US", "enterprise": true},
+    "mistral": {"trust_score": 8, "region": "EU", "enterprise": true},
+    "perplexity": {"trust_score": 8, "region": "US", "enterprise": true},
+    "cohere": {"trust_score": 7, "region": "CA", "enterprise": true},
+    "huggingface": {"trust_score": 7, "region": "US", "enterprise": false}
+  }
+}

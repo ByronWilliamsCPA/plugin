@@ -1,0 +1,7 @@
+{
+  "name": "wff-chat",
+  "description": "claude.ai chat/Desktop/Cowork-safe skill subset (no agents, no Agent/Task/MCP dependency)",
+  "author": {
+    "name": "Byron Williams"
+  }
+}

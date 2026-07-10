@@ -1,0 +1,82 @@
+{
+  "skill_name": "testing",
+  "round": 3,
+  "test_repo": "/home/byron/dev/fragrance_rater",
+  "notes": "Round 3: fixes three assertion design flaws found in R2. (1) Eval-0 expectation 2 now accepts spec= on the actual injected dependency (FragranceService), not just AsyncSession. (2) Eval-2 expectation 1 is now bidirectional — passes if tmp_path is used when file I/O exists, OR correctly omitted when the module has no file operations. (3) Eval-3 replaces the non-discriminating 'identify failure reason' assertion with a harder test-isolation root-cause requirement.",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Generate pytest tests for the async functions in /home/byron/dev/fragrance_rater/src/fragrance_rater/api/fragrances.py. The functions use AsyncSession from SQLAlchemy. Cover success cases, missing resource (404), and validation errors.",
+      "expected_output": "A pytest file using @pytest.mark.asyncio, AsyncMock for service methods, spec= on the actual injected dependency, and at least one parametrize with pytest.param(id=...).",
+      "files": [
+        "/home/byron/dev/fragrance_rater/src/fragrance_rater/api/fragrances.py"
+      ],
+      "expectations": [
+        "The generated tests use @pytest.mark.asyncio on every async test function (decorator appears in the test code, not just an import)",
+        "Mock objects use spec= targeting the actual dependency injected into the route — e.g. spec=FragranceService if the route receives a FragranceService via Depends, or spec=AsyncSession if it receives a session directly; bare MagicMock() without any spec= is not acceptable",
+        "The file uses AsyncMock (not MagicMock) for any mocked coroutine or async method (e.g. service.get_by_id, service.search, service.create, service.update, service.delete)",
+        "At least one test uses @pytest.mark.parametrize with pytest.param(id=...) — the id= keyword argument must be present",
+        "Every test function name follows test_<unit>_<scenario>_<expected_outcome> with at least three underscore-separated segments starting with test_"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "Review the test quality of /home/byron/dev/fragrance_rater/tests/test_example.py and /home/byron/dev/fragrance_rater/tests/unit/. Identify specific issues and how to fix each one.",
+      "expected_output": "A review identifying at least 3 distinct quality issues, citing real test function names from those files, with concrete before/after code fixes for each issue.",
+      "files": [
+        "/home/byron/dev/fragrance_rater/tests/test_example.py",
+        "/home/byron/dev/fragrance_rater/tests/unit/"
+      ],
+      "expectations": [
+        "The review identifies at least 3 distinct quality issues presented in a numbered or bulleted list",
+        "The review cites at least one specific test function name that actually exists in the reviewed files (e.g. test_json_logging_renderer, test_get_logger_returns_logger, test_cli_debug_mode, test_default_values, test_runs_coroutine, test_hello_default, or similar names from those files)",
+        "At least one issue is about assertion quality (assert True, assert result is not None, assert callable(...)) or missing edge cases or parametrize duplication",
+        "Each identified issue includes a concrete code fix showing the before pattern and the corrected pattern (not just 'add more assertions')",
+        "The review does NOT invent test function names that do not exist in the reviewed files — every cited name must appear in test_example.py or one of the unit/ test files"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Generate pytest tests for /home/byron/dev/fragrance_rater/src/fragrance_rater/utils/logging.py. This module configures structured logging using structlog. Use tmp_path for any file operations.",
+      "expected_output": "A pytest file that imports pytest, handles file operations correctly (using tmp_path if the module has file I/O, omitting it if not), asserts specific log content, covers error paths, and uses proper test naming.",
+      "files": [
+        "/home/byron/dev/fragrance_rater/src/fragrance_rater/utils/logging.py"
+      ],
+      "expectations": [
+        "The generated test file imports pytest at the top level AND either (a) uses tmp_path as a fixture parameter if logging.py has file I/O operations, OR (b) correctly omits tmp_path because the module has no file operations — hardcoded /tmp/ paths or tempfile.mktemp() are not acceptable in either case",
+        "At least one test asserts specific content about logger behavior — e.g. checks a specific return value, validates a specific log field value, or asserts the exact operation name in log output (not just assert result is not None)",
+        "Every test function name follows test_<unit>_<scenario>_<expected_outcome> with at least three underscore-separated segments starting with test_",
+        "At least one test covers an error or exception path (uses pytest.raises or tests behavior when an invalid level, missing argument, or bad input is provided)",
+        "The file does NOT use tempfile.mktemp() or hardcoded /tmp/ paths"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Run the test suite in /home/byron/dev/fragrance_rater/tests/unit/ and tell me which tests pass, which fail, and why any failures occur.",
+      "expected_output": "Execution of pytest on tests/unit/ from within the fragrance_rater directory, with a pass/fail count summary and root-cause explanation for any failures that includes the test-isolation mechanism (not just symptoms).",
+      "files": [],
+      "expectations": [
+        "The transcript shows a Bash tool call invoking pytest tests/unit/ or uv run pytest tests/unit/ (the command targets that specific directory)",
+        "The response includes a numeric summary (X passed, Y failed) derived from actual pytest output — not a guess",
+        "For any rate-limit failures (HTTP 429 responses in tests), the response explains the test-isolation root cause — why the rate limit triggers during the test run specifically (e.g. shared in-memory state across tests, missing teardown between tests, per-process counter not reset) — not just 'the rate limiter is configured' or 'HTTP 429 was returned'",
+        "The response does NOT generate new test code — it runs the existing suite and reports results only",
+        "The Bash command ran from within or explicitly targeting the /home/byron/dev/fragrance_rater directory (not the .claude working directory)"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Generate pytest tests for the Pydantic models in /home/byron/dev/fragrance_rater/src/fragrance_rater/schemas/fragrance.py. Focus on field validation — cover valid inputs, missing required fields, invalid types, and boundary values.",
+      "expected_output": "A pytest file using @pytest.mark.parametrize with at least 4 parameter sets using pytest.param(id=...), covering valid input, missing required field, invalid type, and boundary values for models like FragranceCreate and FragranceAccordCreate.",
+      "files": [
+        "/home/byron/dev/fragrance_rater/src/fragrance_rater/schemas/fragrance.py"
+      ],
+      "expectations": [
+        "The generated file uses @pytest.mark.parametrize with at least 4 parameter sets covering different validation scenarios",
+        "Every parametrize entry uses pytest.param(..., id='readable-id') — the id= keyword argument must be present on each entry",
+        "The test file covers at least three of these four scenarios: valid input (should succeed), missing required field (should raise ValidationError), invalid type (should raise ValidationError), boundary value (e.g. intensity outside 0.0-1.0 or launch_year outside 1800-2100)",
+        "Every test function asserts specific behavior — either assert model.field == expected_value or pytest.raises(ValidationError) — not just assert result is not None or assert result",
+        "The test file imports from the actual fragrance_rater.schemas.fragrance module path (e.g. from fragrance_rater.schemas.fragrance import FragranceCreate) — not a made-up import path"
+      ]
+    }
+  ]
+}

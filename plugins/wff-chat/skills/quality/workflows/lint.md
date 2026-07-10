@@ -1,0 +1,42 @@
+---
+argument-hint: [path]
+description: Lint code using Ruff for Python with auto-fix capabilities.
+allowed-tools: Bash(uv:*, ruff:*), Read
+---
+
+# Code Linting
+
+Lint code and apply automatic fixes.
+
+## Python (Ruff)
+
+```bash
+# Check and auto-fix
+uv run ruff check --fix path/
+
+# Check only
+uv run ruff check path/
+
+# Show violations
+uv run ruff check --output-format=full path/
+```
+
+## Auto-fixable Issues
+
+Ruff can automatically fix:
+
+- Unused imports
+- Import sorting
+- Line length issues
+- Trailing whitespace
+- Many PEP 8 violations
+
+## Manual Review Required
+
+- Type errors → Use BasedPyright (`uv run basedpyright src`)
+- Complex refactoring
+- Security issues → Use Bandit
+
+---
+
+*Extracted from quality-lint-check command.*

@@ -1,0 +1,69 @@
+{
+  "skill_name": "testing",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Generate pytest unit tests for the parse_front_matter function in evals/files/validate_front_matter.py. Focus on the return values for valid files, files with no front matter, and files with malformed YAML.",
+      "expected_output": "A pytest file using parametrize with pytest.param(id=...), tmp_path fixture, AAA structure, and at least one assertion per test.",
+      "files": ["evals/files/validate_front_matter.py"],
+      "expectations": [
+        "The generated test file contains at least one use of @pytest.mark.parametrize",
+        "Each parametrize call uses pytest.param with an id= keyword argument (e.g., id='valid-yaml' or id=\"valid-yaml\")",
+        "At least one test function name follows the pattern test_<unit>_<scenario>_<expected_outcome> (contains at least three underscore-separated segments starting with test_)",
+        "The tests use tmp_path or a pytest fixture for creating temporary input files rather than hardcoded file paths",
+        "Every test function body contains at least one assert statement",
+        "The test file imports pytest at the top level"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "Write pytest tests for the async function fetch_with_retry in evals/files/async_client.py. The function retries on HTTP 429 and 503 up to max_retries times with exponential backoff. Cover the success case, retry-then-succeed, max retries exceeded, and non-retryable status codes.",
+      "expected_output": "A pytest file using @pytest.mark.asyncio, spec'd mock objects, and pytest.raises for the error paths.",
+      "files": ["evals/files/async_client.py"],
+      "expectations": [
+        "The generated test file contains at least one function decorated with @pytest.mark.asyncio",
+        "Mock objects for the HTTP client or session use spec= or autospec=True (grep for spec= or autospec=)",
+        "The test file covers at least three of these four scenarios: success on first attempt, success after retry, max retries exceeded raising an exception, non-retryable status code raising immediately",
+        "The test for max-retries-exceeded asserts that an exception is raised (uses pytest.raises)",
+        "The test file contains at least one use of @pytest.mark.asyncio decorator (not just an import — the decorator must appear in the test code)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Run the unit tests in the tests/unit/ directory. Show me which tests pass and which fail, and give me a brief summary of the overall result.",
+      "expected_output": "Execution of pytest on tests/unit/ with a pass/fail count summary.",
+      "files": [],
+      "expectations": [
+        "The transcript shows a Bash tool call that invokes pytest (e.g., pytest tests/unit or uv run pytest tests/unit)",
+        "The response includes a summary of how many tests passed and how many failed (contains digits followed by passed or failed)",
+        "The response does not generate new test code — it executes the existing suite"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Review the test quality of the existing tests in evals/files/weak_tests.py and provide specific, actionable feedback. Identify at least three concrete issues and suggest how to fix each one.",
+      "expected_output": "A review identifying at least 3 specific quality issues with test function names cited and concrete fixes provided.",
+      "files": ["evals/files/weak_tests.py"],
+      "expectations": [
+        "The review identifies at least three distinct quality issues (numbered or bulleted list with at least 3 items)",
+        "The review mentions at least one issue related to assertion quality (e.g., assert True, asserting only that no exception is raised, or missing assertions)",
+        "The review mentions at least one issue related to parametrize or test duplication (similar tests that could be combined)",
+        "Each identified issue includes a concrete suggestion for how to fix it (not just add more tests)",
+        "The review references specific test function names (e.g., test_multiply or test_add_positive_again)"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Generate pytest tests for the validate_email function in evals/files/validators.py. This is a validation function — make sure to cover valid inputs, invalid inputs, boundary conditions, and None/empty inputs.",
+      "expected_output": "A pytest file using parametrize with pytest.param(id=...), covering None, empty string, valid, invalid, and boundary email inputs.",
+      "files": ["evals/files/validators.py"],
+      "expectations": [
+        "The generated test file uses @pytest.mark.parametrize with at least 3 parameter sets",
+        "The test file includes a test case for None input (the word None appears as a parameter value or in a pytest.param call)",
+        "The test file includes a test case for empty string input ('' or \"\" appears as a parameter value)",
+        "Every parametrize entry either uses pytest.param with id= OR the parametrize ids= argument is used to provide human-readable names",
+        "The test file contains at least one assert statement that checks a return value against True or False (not just assert result is not None)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,212 @@
+{
+  "skill_name": "writing",
+  "evals": [
+    {
+      "id": 0,
+      "name": "edit-ai-patterns",
+      "prompt": "Please edit this draft client memo before I send it:\n\n---\n\nTO: Acme Manufacturing, Inc. — Attention: Sarah Chen, CFO\nFROM: Byron Williams, CPA\nRE: Q3 2024 Tax Planning Opportunities\nDATE: October 15, 2024\n\nThis memo will significantly improve your understanding of the tax planning opportunities available to Acme Manufacturing for Q3 2024. We have comprehensively analyzed your situation and identified several cutting-edge strategies that will leverage your current position to substantially reduce your tax liability.\n\nFirst and foremost, it is important to note that your current depreciation schedule — which was established in 2021 — does not reflect the substantially changed landscape of bonus depreciation under the Tax Cuts and Jobs Act phase-down. Moving forward, you should consider accelerating your equipment purchases to take advantage of the 60% bonus depreciation rate currently in effect. This innovative approach will enable you to streamline your capital expenditures in a way that is holistic and comprehensive.\n\nAdditionally, your research and development credit situation presents a game-changing opportunity. Furthermore, the newly enacted regulations under Section 174 have transformed how companies capitalize R&D costs. Moreover, your software development activities — which are currently expensed — may now need to be amortized over five years for federal purposes, creating a significantly larger tax liability than you may have anticipated. This is a crucial issue that requires immediate attention.\n\nIn conclusion, we recommend scheduling a meeting to discuss these pivotal matters. Our team will leverage our synergies with your finance department to ensure seamless integration of these strategies. We are best-in-class advisors who will empower your team to optimize your tax position going forward.\n\nPlease do not hesitate to reach out with any questions.\n---",
+      "expected_output": "The skill invokes grammar-composition-editor (Stage 1), document-validator (Stage 2), and writing-style-editor (Stage 3) in sequence. Stage 3 flags AI patterns including: 'significantly', 'leverage', 'synergies', 'seamless', 'holistic', 'comprehensive', 'cutting-edge', 'game-changing', 'pivotal', 'it is important to note', 'In conclusion', 'Moving forward', 'Furthermore', 'Moreover', 'Additionally'. Output includes pipeline status blocks for all three stages, a consolidated status report with SEND: READY or SEND: NOT READY verdict, and the corrected memo.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "stage_1_invoked",
+          "description": "Stage 1 (grammar-composition-editor) status block present in output",
+          "type": "contains",
+          "value": "stage_1_grammar"
+        },
+        {
+          "name": "stage_2_invoked",
+          "description": "Stage 2 (document-validator) status block present in output",
+          "type": "contains",
+          "value": "stage_2_validation"
+        },
+        {
+          "name": "stage_3_invoked",
+          "description": "Stage 3 (writing-style-editor) status block present in output",
+          "type": "contains",
+          "value": "stage_3_style"
+        },
+        {
+          "name": "ai_patterns_flagged",
+          "description": "Stage 3 produces a structured ai_patterns count in its status block (not just inline editing anywhere in the transcript)",
+          "type": "contains",
+          "value": "ai_patterns:"
+        },
+        {
+          "name": "correct_sequencing",
+          "description": "Stage 1 output appears before Stage 2 output, which appears before Stage 3 output",
+          "type": "ordering",
+          "value": ["stage_1_grammar", "stage_2_validation", "stage_3_style"]
+        },
+        {
+          "name": "final_status_reported",
+          "description": "A consolidated pipeline status report is present at the end of the output",
+          "type": "contains",
+          "value": "Pipeline Result"
+        },
+        {
+          "name": "send_ready_verdict",
+          "description": "Final status report includes a SEND: READY or SEND: NOT READY verdict line",
+          "type": "contains_any",
+          "value": ["SEND: READY", "SEND: NOT READY"]
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "draft-from-outline",
+      "prompt": "Draft a client engagement letter from these bullets. The client is Pacific Northwest Ventures LLC, a Portland-based early-stage venture fund. They're bringing us on for their 2024 tax compliance work. Tone should be professional but approachable — they're a sophisticated client but not CPAs.\n\nKey points to cover:\n- Scope: prepare and file 2024 federal and Oregon partnership returns (Form 1065, OR-65), plus K-1s for all partners\n- Timing: returns due March 15, 2025; extension available to September 15\n- What we need from them: capital account schedules, investment activity summary, expense documentation, partner information (names, addresses, TINs, ownership %)\n- Fee estimate: $4,500-$6,500 depending on complexity of investment activity; billed at completion\n- We'll need a signed engagement letter and 50% retainer ($2,250-$3,250) before starting work\n- Contact: reach out to my assistant Diane for scheduling and document delivery\n- Standard limitation of liability and dispute resolution clause applies",
+      "expected_output": "The skill invokes document-drafter first, producing a draft with a draft_metadata block containing ai_generated: true. The draft is then run through Stage 1, Stage 2, and Stage 3. Stage 3 applies heightened scrutiny (0-instance tolerance). The output includes the draft engagement letter, all three pipeline status blocks, a final status report noting heightened scrutiny was applied, and a SEND: READY or SEND: NOT READY verdict.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "drafter_invoked_first",
+          "description": "document-drafter is invoked before any pipeline stage agent",
+          "type": "contains",
+          "value": "document-drafter"
+        },
+        {
+          "name": "ai_generated_flag",
+          "description": "draft_metadata block with ai_generated: true is present in the output",
+          "type": "contains",
+          "value": "ai_generated: true"
+        },
+        {
+          "name": "heightened_scrutiny_noted",
+          "description": "Output notes that heightened scrutiny (0-instance tolerance) was applied at Stage 3",
+          "type": "contains_any",
+          "value": ["heightened scrutiny", "0 AI patterns", "zero-tolerance", "0-instance"]
+        },
+        {
+          "name": "all_three_stages_run",
+          "description": "All three pipeline stage status blocks present after drafter output",
+          "type": "contains_all",
+          "value": ["stage_1_grammar", "stage_2_validation", "stage_3_style"]
+        },
+        {
+          "name": "send_ready_verdict",
+          "description": "Final status report includes a SEND: READY or SEND: NOT READY verdict line",
+          "type": "contains_any",
+          "value": ["SEND: READY", "SEND: NOT READY"]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "rewrite-audience",
+      "prompt": "I have this technical tax analysis I wrote for my own reference. Can you rewrite it so I can send it to my client? The client is a small business owner who runs a landscaping company — not a CPA, doesn't know tax jargon. Keep all the numbers and conclusions intact.\n\n---\n\nSECTION 199A QUALIFIED BUSINESS INCOME DEDUCTION ANALYSIS — GREEN HORIZON LANDSCAPING LLC\n\nEntity Structure and QBI Eligibility\nGreen Horizon Landscaping LLC is a disregarded entity for federal income tax purposes (single-member LLC treated as a sole proprietorship). The entity's primary business activity (NAICS code 561730 — landscaping services) qualifies as a trade or business under IRC §162. The entity does not constitute a Specified Service Trade or Business (SSTB) under §1.199A-5 because landscaping services are not enumerated as a disqualified field. Accordingly, the §199A deduction is not subject to the SSTB limitation.\n\nDeduction Calculation\nFor tax year 2023, the entity's qualified business income (QBI) is $186,400, computed as net income from Schedule C ($214,200) reduced by the deductible portion of self-employment tax ($19,406) and self-employed health insurance premiums ($8,394). The applicable percentage is 20%, yielding a tentative §199A deduction of $37,280.\n\nTaxable Income Limitation\nUnder §199A(a), the deduction cannot exceed 20% of taxable income reduced by net capital gain. Mr. Chen's 2023 taxable income is $224,800, and he has no capital gain. The taxable income limitation is therefore $44,960 (20% × $224,800). Because the tentative deduction ($37,280) is less than the limitation ($44,960), the §199A deduction equals the tentative amount: $37,280.\n\nW-2 Wage and UBIA Limitations\nBecause taxable income ($224,800) does not exceed the threshold amount ($182,050 for single filers in 2023), the W-2 wage and UBIA of qualified property limitations under §199A(b)(2) do not apply. The deduction is taken in full.\n\nConclusion\nGreen Horizon Landscaping LLC is entitled to a §199A deduction of $37,280 for tax year 2023. This reduces Mr. Chen's effective federal income tax rate on his business income from approximately 32% to approximately 25.6%, a savings of approximately $12,100 compared to the tax cost without the deduction.\n---",
+      "expected_output": "The skill invokes tone-rewriter first with a no-add constraint (no forward-looking claims not in source) and no chain-of-thought leakage. Stage 2 verifies semantic preservation — all key figures ($186,400 QBI, 20% rate, $37,280 deduction, $12,100 savings) must survive. The output includes the rewritten document, all three pipeline status blocks, semantic preservation verification, a SEND: READY or SEND: NOT READY verdict (NOT READY if the arithmetic contradiction is flagged as CONDITIONAL), and no internal reasoning artifacts in the document body.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "rewriter_invoked_first",
+          "description": "tone-rewriter is invoked before any pipeline stage",
+          "type": "contains",
+          "value": "tone-rewriter"
+        },
+        {
+          "name": "no_cot_leakage",
+          "description": "No chain-of-thought reasoning artifacts appear in the document body (phrases like 'Wait —' or 'Re-checking' must not be present)",
+          "type": "not_contains",
+          "value": "Wait —"
+        },
+        {
+          "name": "semantic_preservation_checked",
+          "description": "Stage 2 output explicitly addresses semantic preservation of the source document",
+          "type": "contains_any",
+          "value": ["semantic preservation", "factual content preserved", "claims preserved", "facts survived"]
+        },
+        {
+          "name": "key_figures_intact",
+          "description": "Key dollar figures from the source ($37,280 deduction, $12,100 savings) are present in output",
+          "type": "contains_all",
+          "value": ["37,280", "12,100"]
+        },
+        {
+          "name": "pipeline_completes",
+          "description": "All three pipeline stage status blocks present after rewriter output",
+          "type": "contains_all",
+          "value": ["stage_1_grammar", "stage_2_validation", "stage_3_style"]
+        },
+        {
+          "name": "send_ready_verdict",
+          "description": "Final status report includes a SEND: READY or SEND: NOT READY verdict line",
+          "type": "contains_any",
+          "value": ["SEND: READY", "SEND: NOT READY"]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "analyze-readiness",
+      "prompt": "I'm about to send this memo to the Hartwell Family Trust. The trustees are James and Carol Hartwell — retired, in their 70s, conservative investors, not finance professionals. I want to know if this will land with them before I send it. Their desired outcome: understand why we're recommending they add a small allocation to I-bonds and actually do it before the October 31st deadline.\n\n---\n\nTO: James and Carol Hartwell, Trustees — Hartwell Family Trust\nFROM: Byron Williams, CPA\nRE: I-Bond Purchase Opportunity — Action Required Before October 31\nDATE: October 10, 2024\n\nI want to bring a time-sensitive investment opportunity to your attention.\n\nSeries I savings bonds (I-bonds) currently offer a composite rate of 4.28% for bonds purchased through October 31, 2024. This rate adjusts every six months based on the Consumer Price Index. I-bonds carry no default risk because they are issued and backed by the U.S. Treasury.\n\nEach of you can purchase up to $10,000 in I-bonds per calendar year directly through TreasuryDirect.gov. Purchases must be made electronically. The bonds cannot be redeemed for the first twelve months after purchase. If redeemed between one and five years after purchase, you forfeit three months of interest. After five years, they may be redeemed without penalty.\n\nGiven current interest rates and the trust's conservative allocation objectives, I recommend each of you purchase $10,000 in I-bonds before October 31 to lock in the current rate. This would add $20,000 to your fixed-income holdings at a competitive, inflation-adjusted rate with no credit risk.\n\nTo purchase: visit TreasuryDirect.gov, create an account (or log into your existing account), navigate to 'Buy Direct,' select 'Series I,' enter $10,000, and complete the purchase using your bank account on file. The process takes approximately 15 minutes.\n\nPlease let me know if you have questions or would like to schedule a brief call to walk through the purchase together.\n---",
+      "expected_output": "The skill invokes audience-reaction-analyzer with the document and the specified audience (James and Carol Hartwell, trustees, retired, conservative investors, not finance professionals). Output includes: audience profile summary block, reaction narrative, comprehension report, persuasion report, emotional trajectory table, flagged items table with HIGH/MEDIUM/LOW priority ratings and an Audience Impact column, and overall assessment with READY/NEEDS REVISION/SIGNIFICANT REWORK verdict.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "analyzer_invoked",
+          "description": "audience-reaction-analyzer agent is invoked",
+          "type": "contains",
+          "value": "audience-reaction-analyzer"
+        },
+        {
+          "name": "verdict_present",
+          "description": "READY, NEEDS REVISION, or SIGNIFICANT REWORK verdict is present in the output",
+          "type": "contains_any",
+          "value": ["READY", "NEEDS REVISION", "SIGNIFICANT REWORK"]
+        },
+        {
+          "name": "priority_issues_table",
+          "description": "A flagged items table from the audience-reaction-analyzer output contains an Audience Impact column — discriminates against bare baseline tables that use Severity but not Audience Impact",
+          "type": "contains",
+          "value": "Audience Impact"
+        },
+        {
+          "name": "audience_profile_present",
+          "description": "Audience profile summary block is present with target audience described",
+          "type": "contains_any",
+          "value": ["Target Audience", "Audience Profile", "Hartwell"]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "fail-stop",
+      "prompt": "Please edit this analysis before I share it with the investment committee:\n\n---\n\nPORTFOLIO REBALANCING RECOMMENDATION — Q4 2024\n\nExecutive Summary\nAfter comprehensive analysis of current market conditions and the trust's investment objectives, we recommend rebalancing the portfolio to increase equity exposure by 8 percentage points. Research conclusively demonstrates that portfolios rebalanced quarterly outperform non-rebalanced portfolios by 2.3% annually over a ten-year horizon. This approach will significantly improve risk-adjusted returns.\n\nMarket Context\nEquity markets have delivered strong year-to-date returns, with the S&P 500 up 22.1% through September 2024. Studies show that 78% of institutional investors who increased equity exposure in Q4 of an election year outperformed their benchmarks over the following twelve months. The current macroeconomic environment is fundamentally sound — inflation has declined from its 2022 peak, the Federal Reserve has begun cutting rates, and corporate earnings growth remains robust at 8.4% for Q3 2024.\n\nRebalancing Rationale\nThe trust's current allocation (55% equity / 40% fixed income / 5% alternatives) has drifted from its target (60% equity / 35% fixed income / 5% alternatives) due to the strong equity market performance. Rebalancing to target is consistent with the investment policy statement. Additionally, tax-loss harvesting opportunities in the fixed-income sleeve could offset approximately $14,000 in realized gains from the equity rebalance.\n\nAll major financial planning associations recommend quarterly rebalancing as best practice. The evidence is overwhelming that disciplined rebalancing adds value over time.\n\nRecommendation\nWe recommend executing the rebalance during the last two weeks of October to minimize market impact.\n---",
+      "expected_output": "Stage 2 (document-validator) should return FAIL status due to unverifiable statistics: '78% of institutional investors who increased equity exposure in Q4 of an election year outperformed' has no source, '2.3% annually over a ten-year horizon' has no source, and 'All major financial planning associations recommend quarterly rebalancing' is an unverified authority appeal. The skill must stop at Stage 2 and NOT invoke Stage 3. The output must include stage_3_style: NOT_INVOKED (the explicit not-invoked marker, not just absence of Stage 3) to prove the pipeline actively stopped rather than simply not running at all.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "stage_1_invoked",
+          "description": "Stage 1 was invoked (pipeline started normally)",
+          "type": "contains",
+          "value": "stage_1_grammar"
+        },
+        {
+          "name": "stage_2_fails",
+          "description": "Stage 2 reports FAIL status in its status block",
+          "type": "contains",
+          "value": "FAIL"
+        },
+        {
+          "name": "stage_3_explicitly_not_invoked",
+          "description": "Output contains stage_3_style: NOT_INVOKED — the explicit not-invoked marker proving the pipeline actively stopped, not just that no pipeline ran at all (prevents trivial baseline pass from absence)",
+          "type": "contains",
+          "value": "NOT_INVOKED"
+        },
+        {
+          "name": "suspect_claims_identified",
+          "description": "At least one claim is tagged SUSPECT or UNVERIFIED in the Stage 2 output",
+          "type": "contains_any",
+          "value": ["SUSPECT", "UNVERIFIED", "78%", "2.3%"]
+        },
+        {
+          "name": "stop_message_present",
+          "description": "The output explains why the pipeline stopped and does not suggest the document is ready",
+          "type": "contains_any",
+          "value": ["pipeline stopped", "cannot proceed", "Stage 3", "resolve", "stopped at Stage 2"]
+        }
+      ]
+    }
+  ]
+}

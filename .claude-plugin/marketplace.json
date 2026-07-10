@@ -1,0 +1,19 @@
+{
+  "name": "wff-plugins",
+  "owner": {
+    "name": "Byron Williams"
+  },
+  "description": "Internal Williams Family Fund Claude Code and claude.ai distribution",
+  "plugins": [
+    {
+      "name": "wff-code",
+      "source": "./plugins/wff-code",
+      "description": "Full internal Claude Code toolkit: first-party agents plus all first-party skills"
+    },
+    {
+      "name": "wff-chat",
+      "source": "./plugins/wff-chat",
+      "description": "claude.ai chat/Desktop/Cowork-safe skill subset (no agents, no Agent/Task/MCP dependency)"
+    }
+  ]
+}

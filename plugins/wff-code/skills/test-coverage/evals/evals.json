@@ -1,0 +1,70 @@
+{
+  "skill_name": "test-coverage",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Analyze test coverage for /home/byron/dev/fragrance_rater and tell me which modules need the most attention.",
+      "expected_output": "A coverage report listing specific files with their coverage percentages, prioritized worst-first, with the 80% threshold mentioned.",
+      "files": [],
+      "expectations": [
+        "The transcript shows a Bash tool call that runs pytest with --cov=src and --cov-report=json (or equivalent) inside /home/byron/dev/fragrance_rater",
+        "The response lists at least 3 specific file names (e.g., sentry.py, worker.py, evaluations.py) with their coverage percentages",
+        "The response presents files in worst-first order — zero-coverage or lowest-percentage files appear before higher-coverage files",
+        "The response does NOT say only 'coverage is low' without naming specific files and their percentages",
+        "The response mentions the 80% minimum threshold (either as '80%' or 'eighty percent' or 'fail-under=80')"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "Generate tests for the lowest-coverage module in /home/byron/dev/fragrance_rater/src/. Use the test-writer approach.",
+      "expected_output": "Generated pytest tests targeting the identified lowest-coverage file, following naming conventions.",
+      "files": [],
+      "expectations": [
+        "The transcript shows coverage analysis running before test generation — the agent identifies a specific target file by examining coverage data, not by guessing",
+        "The agent names a specific file to target (e.g., 'I will generate tests for src/fragrance_rater/core/sentry.py') rather than saying 'run coverage first'",
+        "Generated test function names follow the pattern test_<unit>_<scenario>_<expected_outcome> — at least one function name has three or more underscore-separated segments starting with test_",
+        "At least one generated test assertion checks a specific return value or exception type (not just 'assert result' or 'assert result is not None')",
+        "The transcript shows a Task tool call (spawning a test-writer subagent) OR the agent generates tests inline with explicit coverage targeting"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Run coverage enforcement for /home/byron/dev/fragrance_rater. Tell me if we pass the 80% threshold.",
+      "expected_output": "Execution of pytest with --cov-fail-under=80, reporting actual overall percentage and pass/fail verdict.",
+      "files": [],
+      "expectations": [
+        "The transcript shows a Bash tool call running pytest with --cov-fail-under=80 (or equivalent enforce-mode command) in /home/byron/dev/fragrance_rater",
+        "The response reports the actual overall coverage percentage from the command output (a specific number like '66.92%' or '67%', not a paraphrase)",
+        "The response states clearly whether the project PASSES or FAILS the 80% threshold",
+        "The response does NOT claim pass or fail without having run the coverage check — fabricated verdicts without tool evidence count as FAIL",
+        "If below threshold, the response identifies at least 2 specific files that are dragging the score down (not just 'several files need improvement')"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Audit the Codecov configuration for /home/byron/dev/fragrance_rater.",
+      "expected_output": "A structured audit report checking for codecov.yaml presence and validating flags/components/status config.",
+      "files": [],
+      "expectations": [
+        "The transcript shows the agent checking for codecov.yaml or codecov.yml at the repository root of /home/byron/dev/fragrance_rater (a Glob or Read or Bash tool call targeting those filenames)",
+        "If the file does not exist, the response reports FAIL and explains what configuration should be created (flags, components, patch target)",
+        "If the file exists, the response validates at least flags, components, and patch target against a checklist",
+        "The response produces a structured report with a summary line showing X/N checks passing (e.g., '0/9 checks passing' or '5/9 checks passing')",
+        "The response does NOT skip or defer the check — it must produce a definitive PASS or FAIL verdict, not 'check if codecov.yaml exists first'"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Check whether /home/byron/dev/fragrance_rater has test coverage for OWASP Top 10 vulnerabilities.",
+      "expected_output": "A security coverage report mapping OWASP categories to existing test coverage, identifying gaps.",
+      "files": [],
+      "expectations": [
+        "The transcript shows the agent examining existing test files in /home/byron/dev/fragrance_rater/tests/ for security-related patterns (Grep or Read calls on test files)",
+        "The response identifies which OWASP categories have test coverage and which are missing — at minimum lists covered vs uncovered categories",
+        "The response mentions at least 3 specific OWASP Top 10 category names beyond just 'injection' (e.g., Broken Access Control, Cryptographic Failures, Security Misconfiguration, SSRF, etc.)",
+        "If no security tests exist for a category, the response identifies at least 2 specific test scenarios to add (not just 'add security tests')",
+        "The response does NOT claim security coverage exists without citing evidence from the actual test files (must reference specific test file names or test function names found)"
+      ]
+    }
+  ]
+}
