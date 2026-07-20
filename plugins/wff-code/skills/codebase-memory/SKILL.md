@@ -5,6 +5,15 @@ description: Use the codebase knowledge graph for structural code queries. Trigg
 
 # Codebase Memory — Knowledge Graph Tools
 
+## Precondition
+
+This skill requires the codebase-memory-mcp server (binary-managed; see
+`docs/getting-started/codebase-memory-mcp.md`). Check before any step:
+`command -v codebase-memory-mcp` succeeds AND `~/.claude/.mcp.json` exists.
+If either fails, STOP and report: "codebase-memory-mcp not installed; run
+`codebase-memory-mcp install` or fall back to Grep/Glob discovery." Do not
+guess at graph queries against an absent backend.
+
 Graph tools return precise structural results in ~500 tokens vs ~80K for grep.
 
 ## Quick Decision Matrix

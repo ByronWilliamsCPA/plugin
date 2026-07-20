@@ -2,7 +2,7 @@
 name: owasp-llm
 description: OWASP Top 10 for Large Language Model Applications (2025) specialist. Reviews LLM integrations for LLM01–LLM10 vulnerabilities.
 model: sonnet
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob"]
 ---
 
 # OWASP LLM Applications Top 10 (2025) Specialist

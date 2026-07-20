@@ -1,7 +1,7 @@
 ---
 argument-hint: [--strategy=tiered] [--budget=balanced] [--scope=changed-files] [--explain] [--apply-fixes=review]
 description: Intelligent tiered verification of code assumptions using multiple AI models based on risk levels.
-allowed-tools: Bash(git:*), Read, Grep, mcp__pal__chat, mcp__pal__dynamic_model_selector
+allowed-tools: Bash(git:*), Read, Grep, Skill
 ---
 
 # Assumption Verification Workflow
@@ -10,11 +10,14 @@ Systematically verify code assumptions using multi-model AI analysis with intell
 
 ## Task Overview
 
-Analyze code for assumption tags and route them to appropriate AI models:
+Analyze code for assumption tags and route them to appropriate AI models.
+Model names come from the current roster in
+`.claude/skills/panel/data/models.csv`; the tiers below name capability
+bands, not fixed models:
 
-- **#CRITICAL:** → Premium models (Gemini 2.5 Pro, O3-Mini)
-- **#ASSUME:** → Dynamic free model selection (DeepSeek-R1, Qwen-Coder)
-- **#EDGE:** → Fast batch processing (Gemini Flash Lite)
+- **#CRITICAL:** → premium models from the roster
+- **#ASSUME:** → panel selection of cost-effective models from the roster
+- **#EDGE:** → fast batch processing with a fast roster model
 
 ## Arguments
 
@@ -65,26 +68,42 @@ Search for assumption patterns:
 
 **Critical Assumptions (Premium Models)**:
 
-- Payment/Financial → OpenAI O3-Mini or Gemini 2.5 Pro
-- Security/Auth → Gemini 2.5 Pro
-- Concurrency/Race → DeepSeek-R1 (free) or Gemini 2.5 Pro (paid)
-- Database/Transactions → DeepSeek-R1
+Route each category to a premium reasoning model from the current roster in
+`.claude/skills/panel/data/models.csv`:
 
-**Standard Assumptions (Dynamic Free Selection)**:
+- Payment/Financial → premium reasoning model
+- Security/Auth → premium reasoning model
+- Concurrency/Race → strong free reasoning model, or premium if budget allows
+- Database/Transactions → strong free reasoning model
 
-Use `mcp__pal__dynamic_model_selector`:
-```json
-{
-  "requirements": "Analyze code assumptions for [category]. Add defensive programming patterns and error handling.",
-  "model": "auto",
-  "complexity_level": "medium",
-  "budget_preference": "cost-optimized"
-}
+**Standard Assumptions (Panel Review)**:
+
+Use `Skill("panel")` in tiered-review mode at level 1 (three free models,
+$0.50 cap), batching the assumptions of one category into a single prompt:
+
+```text
+Skill("panel")(
+  mode:   "tiered-review",
+  level:  1,
+  domain: "code_review",
+  prompt: "Analyze these code assumptions for [category]. For each, state
+           whether it holds, and name the defensive programming pattern or
+           error handling the code should add if it does not.
+
+           {assumptions with file, line, and surrounding code}"
+)
 ```
 
-**Edge Cases (Fast Free Models)**:
+**Edge Cases (Fast Models)**:
 
-Batch process with `mcp__pal__chat` using `gemini-2.0-flash-lite`.
+Batch process via `Skill("panel")` in flexible panel mode with a one-model
+roster, picking a fast, cheap model from
+`.claude/skills/panel/data/models.csv`.
+
+Precondition for all three tiers: `OPENROUTER_API_KEY` must be set. If it is
+not, degrade to single-model verification with the
+`doubt-driven-development` skill and tag the output `VERIFIED-SINGLE-MODEL`
+so downstream readers know decorrelation was not achieved.
 
 ### 3. Execute Verification Strategy
 

@@ -45,15 +45,19 @@ The key insight is that **the same context that made an assumption cannot effect
 
 | Tier | Tag | Risk Level | Model Selection | Cost |
 |------|-----|------------|-----------------|------|
-| 1 | #CRITICAL | Production outages, data loss | Premium (Gemini 2.5 Pro, O3-mini) | Paid |
-| 2 | #ASSUME | Functional bugs, UX issues | Dynamic free selection (DeepSeek-R1, Qwen) | Free |
-| 3 | #EDGE | Rare scenarios, optimizations | Fast free (Flash-lite) | Free |
+| 1 | #CRITICAL | Production outages, data loss | Premium models from the current roster | Paid |
+| 2 | #ASSUME | Functional bugs, UX issues | Panel selection from the current roster | Free |
+| 3 | #EDGE | Rare scenarios, optimizations | Fast models from the current roster | Free |
 
-### Dynamic Model Selection
+The roster is not fixed inline here; it lives in
+`.claude/skills/panel/data/models.csv` and is refreshed independently of this
+methodology document.
 
-Leverages intelligent routing to:
+### Panel-Based Model Selection
 
-- Select the best free model for each assumption type
+Uses the `/panel` skill's OpenRouter roster to:
+
+- Select the best-fit model for each assumption type from the current roster
 - Learn from patterns over time
 - Optimize cost while maintaining quality
 
