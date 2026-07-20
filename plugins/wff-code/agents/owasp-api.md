@@ -2,7 +2,7 @@
 name: owasp-api
 description: OWASP API Security Top 10 (2023) specialist. Reviews REST, GraphQL, gRPC, and WebSocket APIs for API01–API10 vulnerabilities.
 model: sonnet
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob"]
 ---
 
 # OWASP API Security Top 10 (2023) Specialist

@@ -2,7 +2,7 @@
 name: owasp-web
 description: OWASP Top 10 for Web Applications (2025) specialist. Reviews code for A01–A10 vulnerabilities.
 model: sonnet
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob"]
 ---
 
 # OWASP Web Applications Top 10 (2025) Specialist
@@ -97,8 +97,9 @@ For each gap identified in review-tests mode:
 2. Reference the OWASP category ID in the test docstring
 3. Use parametrized attack payloads from the WSTG methodology
 4. Include both positive (valid behavior) and negative (attack rejected) cases
-5. Run tests to verify they pass
-6. Iterate up to 3 times on failures
+5. Return the generated test code in full (this agent has no Write or Bash
+   tool; it cannot create files or execute tests). Flag each generated test
+   for the caller to write to disk and run, and note which gap it closes.
 
 ## Output Format
 

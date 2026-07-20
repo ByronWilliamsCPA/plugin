@@ -19,15 +19,15 @@ Model-validation parameters used throughout this workflow. Edit these values to 
 model selection and consensus depth without touching the workflow logic.
 
 ```text
-PAL_CHAT_MODEL:        google/gemini-2.5-pro-preview
-PAL_CONSENSUS_MODELS:  ["google/gemini-2.5-pro-preview", "openai/gpt-4o"]
+PANEL_MODELS:          ["google/gemini-2.5-pro-preview", "openai/gpt-4o"]
 CONSENSUS_LEVEL:       1
 PREMISE_MERGED_PR_LOOKBACK:   10
 PREMISE_STALENESS_HOLD_DAYS:  14
 ```
 
-- `PAL_CHAT_MODEL`: model passed to `mcp__pal__chat` for targeted validations
-- `PAL_CONSENSUS_MODELS`: model list passed to `mcp__pal__consensus` for Agent L
+- `PANEL_MODELS`: model list passed to `Skill("panel")` in flexible panel mode
+  for Agent L (the engine's `--models` argument). Precondition:
+  `OPENROUTER_API_KEY` must be set; if it is not, skip Agent L and note the gap.
 - `CONSENSUS_LEVEL`: level (1/2/3) for the `/panel` skill engine used in Step 7b;
   level 1 uses 3 free models (cap $0.50), level 2 adds economy models (6 total, cap
   $1.00), level 3 adds high-cost models (8 total, cap $10.00)
@@ -36,8 +36,8 @@ PREMISE_STALENESS_HOLD_DAYS:  14
 - `PREMISE_STALENESS_HOLD_DAYS`: branch age in days above which staleness biases
   Agent M toward a HOLD verdict on a confirmed regression
 
-Step 7b cross-model validation runs through the `consensus` skill's CLI engine
-(`.claude/skills/consensus/scripts/consensus_cli.py`), not PAL `tiered_consensus`. The
+Step 7b cross-model validation runs through the `/panel` skill's CLI engine
+(`.claude/skills/panel/scripts/consensus_cli.py`), not PAL `tiered_consensus`. The
 PAL multi-step protocol reliably returned setup-only messages without verdicts in this
 step (observed repeatedly), so it was replaced with the one-shot consensus engine, which
 returns model responses and counts in a single `run` call.
@@ -1233,15 +1233,16 @@ If no issues found:
   [Info] Perf: No performance issues detected in diff
 ```
 
-### Agent L: Architectural Review (PAL consensus)
+### Agent L: Architectural Review (flexible panel)
 
 *Run when `CHANGED_FILES` includes new modules, new public API surfaces,
 new base classes, or structural changes to existing modules (heuristic:
 any file where more than 30% of lines changed or a new top-level class
 or function was added).*
 
-Call `mcp__pal__consensus` with `PAL_CONSENSUS_MODELS` and the prompt below.
-Each model is assigned stance `neutral` so all participate as independent
+Call `Skill("panel")` in flexible panel mode with `PANEL_MODELS` and the
+prompt below. Assign every model the neutral `technical_validator` role (or an
+equivalent literal stance in the roles file) so all participate as independent
 reviewers rather than debating a position.
 
 ```text
@@ -1521,7 +1522,7 @@ not just the description.
 ### 7b-1. Cross-model false-positive filter (Critical findings unresolved by the ladder)
 
 If any Critical findings (score 75-100) remain after the evidence ladder, validate them
-with the `consensus` skill engine (one-shot; replaces the PAL `tiered_consensus` call
+with the `/panel` skill engine (one-shot; replaces the PAL `tiered_consensus` call
 that reliably returned setup-only messages with no verdicts):
 
 ```bash

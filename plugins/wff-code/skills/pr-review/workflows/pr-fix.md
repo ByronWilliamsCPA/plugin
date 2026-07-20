@@ -20,21 +20,24 @@ no `PREMISE_VERDICT`; omit the line in that case.
 
 ## Configuration
 
-PAL tool parameters used throughout this workflow. Edit these values to tune
-model selection and consensus depth without touching the workflow logic.
+Panel parameters used throughout this workflow. Edit these values to tune
+model selection and review depth without touching the workflow logic.
 
 ```text
-PAL_CHAT_MODEL:      google/gemini-2.5-pro-preview
-PAL_TIERED_LEVEL:    1
-PAL_TIERED_THINKING: auto
+PANEL_MODEL:        google/gemini-2.5-pro-preview
+PANEL_TIERED_LEVEL: 1
 ```
 
-- `PAL_CHAT_MODEL`: model passed to `mcp__pal__chat` for targeted validations
-- `PAL_TIERED_LEVEL`: level (1/2/3) for all `mcp__pal__tiered_consensus` calls;
-  level 1 uses 3 free models, level 2 adds paid models (~$0.50), level 3 is
-  comprehensive (~$5)
-- `PAL_TIERED_THINKING`: thinking depth for tiered_consensus (`auto`, `low`,
-  `high`)
+- `PANEL_MODEL`: the single model passed to `Skill("panel")` in flexible panel
+  mode (a one-model roster) for targeted validations
+- `PANEL_TIERED_LEVEL`: level (1/2/3) for `Skill("panel")` tiered-review calls;
+  level 1 uses 3 free models (cap $0.50), level 2 adds economy models (6 total,
+  cap $1.00), level 3 adds high-cost models (8 total, cap $10.00)
+
+Both modes require `OPENROUTER_API_KEY`. If it is not set, degrade to
+single-model verification with the `doubt-driven-development` skill and tag the
+output `VERIFIED-SINGLE-MODEL` so downstream readers know decorrelation was not
+achieved.
 
 ---
 
@@ -693,11 +696,12 @@ merge blocker. A red Trivy check with `mergeStateStatus: UNSTABLE` (not
 applying): these touch logic, security policy, or refactoring:
 
 For each propose-and-confirm finding, before presenting the proposed fix to
-the user, call `mcp__pal__chat` to validate the fix:
+the user, call `Skill("panel")` in flexible panel mode to validate the fix:
 
 ```text
-mcp__pal__chat(
-  model:  PAL_CHAT_MODEL,
+Skill("panel")(
+  mode:   "panel",
+  models: [PANEL_MODEL],
   prompt: "A SonarQube finding requires a propose-and-confirm fix before I
            show it to the user. Validate the proposed fix is correct and safe.
 
@@ -721,10 +725,10 @@ mcp__pal__chat(
 )
 ```
 
-If PAL returns REVISE or REJECT, update the proposed fix before showing it
-to the user. Do not block on this call; if the PAL tool is unavailable,
-proceed with the original proposed fix and note "PAL validation skipped" in
-the presentation.
+If the panel returns REVISE or REJECT, update the proposed fix before showing
+it to the user. Do not block on this call; if `OPENROUTER_API_KEY` is not set
+or the panel is unavailable, proceed with the original proposed fix and note
+"panel validation skipped" in the presentation.
 
 | SonarQube pattern | Proposed fix |
 | --- | --- |
@@ -875,8 +879,9 @@ If Codecov is failing:
   tautological:
 
 ```text
-mcp__pal__chat(
-  model:  PAL_CHAT_MODEL,
+Skill("panel")(
+  mode:   "panel",
+  models: [PANEL_MODEL],
   prompt: "Review these generated tests for tautological failures (tests that
            will pass regardless of whether the code under test is correct).
 
@@ -898,7 +903,8 @@ mcp__pal__chat(
 )
 ```
 
-  If PAL flags tautological tests, revise them before presenting to the user.
+  If the panel review flags tautological tests, revise them before presenting
+  to the user.
   Note any tests that could not be made non-tautological in the confirmation
   prompt.
 
@@ -1736,10 +1742,10 @@ Auto-fix these? (yes / review details / stop)
 remain, run a stuck-loop diagnosis before stopping:
 
 ```text
-mcp__pal__tiered_consensus(
-  level:          PAL_TIERED_LEVEL,
+Skill("panel")(
+  mode:           "tiered-review",
+  level:          PANEL_TIERED_LEVEL,
   domain:         "code_review",
-  thinking_mode:  PAL_TIERED_THINKING,
   prompt: "A PR fix workflow has completed 2 automatic re-fix cycles but CI
            failures or review comments still remain unresolved. Diagnose why
            the fix attempts are not clearing and suggest a resolution path.
@@ -1774,14 +1780,14 @@ Use the `can_retry` field to drive the exit presentation:
 - If `can_retry: true`: present `proposed_fix` as Option 1 for a targeted third attempt
 - If `can_retry: false`: surface `blocker` as the reason automation is exhausted
 
-Include the PAL diagnosis in the report presented to the user, then stop:
+Include the panel diagnosis in the report presented to the user, then stop:
 
 ```text
 Completed 2 re-fix cycles. Remaining issues:
   {list with reasons}
 
-PAL diagnosis:
-  Root cause:    {root_cause from tiered_consensus}
+Panel diagnosis:
+  Root cause:    {root_cause from the panel tiered review}
   Can retry:     {yes, proposed fix: {proposed_fix} | no, blocker: {blocker}}
 
 Options:

@@ -2,7 +2,7 @@
 name: owasp-ml
 description: OWASP ML Security Top 10 (v0.3, 2023) specialist. Reviews ML training pipelines, model serving, and data infrastructure for ML01–ML10 risks.
 model: sonnet
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob"]
 ---
 
 # OWASP ML Security Top 10 (v0.3) Specialist

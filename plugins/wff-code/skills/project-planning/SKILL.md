@@ -32,7 +32,7 @@ This skill operates in three modes depending on where you are in the planning fl
 1. Collect the project description from the user
 2. Read `pyproject.toml` and existing project structure for technical constraints
 3. Generate `docs/planning/project-vision.md` (PVS only — no ADR, Tech Spec, or Roadmap yet)
-4. Run `mcp__pal__consensus` review on the PVS; revise until READY
+4. Run `Skill("panel")` tiered-review on the PVS; revise until READY
 5. Commit the PVS to version control
 6. Tell Claude: "PVS saved to `docs/planning/project-vision.md`. Invoke the brainstorming skill now — it will read the PVS as existing project context in step 1 and skip re-discovering scope."
 
@@ -51,13 +51,13 @@ This skill operates in three modes depending on where you are in the planning fl
    - Read the "Proposed 2-3 approaches" section from the spec
    - Formalize the chosen approach as `docs/planning/adr/adr-001-<decision-slug>.md`
    - Use template at `templates/adr-template.md`
-   - Run `mcp__pal__consensus` review; revise until READY
+   - Run `Skill("panel")` tiered-review; revise until READY
 3. **Generate Roadmap** (skip if `docs/planning/roadmap.md` already exists):
    - Read the approved spec's architecture and component sections
    - Build a phased roadmap aligned to spec deliverables
    - Save to `docs/planning/roadmap.md`
    - Use template at `templates/roadmap-template.md`
-   - Run `mcp__pal__consensus` review; revise until READY
+   - Run `Skill("panel")` tiered-review; revise until READY
 4. **Commit** both documents
 5. **Run project-plan-synthesizer** (skip if `docs/planning/PROJECT-PLAN.md` already exists):
    - Dispatch the `project-plan-synthesizer` agent with: "Synthesize docs/planning/project-vision.md, docs/planning/adr/, and docs/planning/roadmap.md into docs/planning/PROJECT-PLAN.md. Use semantic release-aligned phase branches and include quality gate thresholds per phase."
@@ -132,12 +132,12 @@ Generate documents sequentially, as later documents reference earlier ones:
 3. **Technical Implementation Spec** - Detailed how-to based on ADRs
 4. **Development Roadmap** - Implementation plan based on all above
 
-### Step 3: Expert Review via Consensus
+### Step 3: Expert Review via Panel
 
-After generating each document, use the zen-mcp-server consensus tool to get expert review:
+After generating each document, use the `/panel` skill's tiered-review mode to get expert review:
 
 ```text
-Use mcp__pal__consensus with gemini-3-pro-preview to review:
+Use Skill("panel") in tiered-review mode to review:
 
 "Review this [document type] for sufficiency to begin development.
 
@@ -297,32 +297,32 @@ When user says: "I want to build a CLI tool for managing personal finances..."
 1. **Generate PVS**
    - Read `templates/pvs-template.md`
    - Generate `docs/planning/project-vision.md` with finance CLI specifics
-   - **Review**: `mcp__pal__consensus` with gemini-3-pro-preview → READY or revise
+   - **Review**: `Skill("panel")` tiered-review mode → READY or revise
 
 2. **Generate ADR**
    - Read `templates/adr-template.md`
    - Generate `docs/planning/adr/adr-001-database-choice.md` for SQLite decision
-   - **Review**: `mcp__pal__consensus` with gemini-3-pro-preview → READY or revise
+   - **Review**: `Skill("panel")` tiered-review mode → READY or revise
 
 3. **Generate Tech Spec**
    - Read `templates/tech-spec-template.md`
    - Generate `docs/planning/tech-spec.md` with Python/Click/SQLite stack
-   - **Review**: `mcp__pal__consensus` with gemini-3-pro-preview → READY or revise
+   - **Review**: `Skill("panel")` tiered-review mode → READY or revise
 
 4. **Generate Roadmap**
    - Read `templates/roadmap-template.md`
    - Generate `docs/planning/roadmap.md` with phased implementation
-   - **Review**: `mcp__pal__consensus` with gemini-3-pro-preview → READY or revise
+   - **Review**: `Skill("panel")` tiered-review mode → READY or revise
 
 5. **Final Validation**
    - Run `scripts/validate-planning-docs.py`
    - Summarize what was created and review outcomes
    - List next steps for beginning development
 
-### Consensus Review Prompt Template
+### Panel Review Prompt Template
 
 ```text
-mcp__pal__consensus with gemini-3-pro-preview:
+Skill("panel") in tiered-review mode:
 
 Review this Project Vision & Scope document for Claude Code Configuration.
 
@@ -341,9 +341,12 @@ DOCUMENT:
 [Full document content here]
 ```
 
-### MCP Server Requirement
+### Panel Requirement
 
-This skill requires the zen-mcp-server for consensus review.
-If not available, skip Step 3 and proceed with manual review.
+This skill requires the `/panel` skill (OpenRouter transport) for review.
+Precondition: `OPENROUTER_API_KEY` must be set. If it is not, degrade to
+single-model verification with the `doubt-driven-development` skill and tag
+the output `VERIFIED-SINGLE-MODEL`, or skip Step 3 and proceed with manual
+review.
 
-Configuration: Ensure `mcp__pal__consensus` tool is accessible.
+Configuration: Ensure the `/panel` skill's `OPENROUTER_API_KEY` precondition is met.

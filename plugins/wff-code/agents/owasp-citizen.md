@@ -2,7 +2,7 @@
 name: owasp-citizen
 description: OWASP Citizen Developer Top 10 (2025) specialist. Reviews AI-assisted code and low-code/no-code implementations for CD01–CD10 vulnerabilities.
 model: sonnet
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: ["Read", "Grep", "Glob"]
 ---
 
 # OWASP Citizen Developer Top 10 (2025) Specialist

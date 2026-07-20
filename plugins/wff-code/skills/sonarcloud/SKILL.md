@@ -12,6 +12,19 @@ version: 2.1.0
 
 Review and resolve SonarCloud issues and security hotspots for the current project.
 
+## Preconditions (check before any step)
+
+1. The MCP bridge for the target org responds:
+   `curl -sf http://localhost:8090/mcp` (byronwilliamscpa) or
+   `curl -sf http://localhost:8091/mcp` (williaby). See `context/orgs.md`
+   for the org-to-port map. If neither responds, STOP: report "SonarQube MCP
+   bridge not running; start it or run this skill on the host machine." Do
+   not attempt fixes without it.
+2. `SONARQUBE_TOKEN` is set.
+3. Org keys come from `sonar-project.properties` (or the other config
+   sources in Step 1) in the target repo, not from this skill. If no config
+   source is present, ask the user for the org key.
+
 ## Activation
 
 Trigger on: sonar, sonarcloud, sonarqube, sonarlint, quality gate, sonar issues,
@@ -131,15 +144,11 @@ and suggest running `/sonarcloud check` for full diagnostics.
 
 ### Step 2: Select MCP Server
 
-Route to the correct MCP server based on the detected organization:
-
-| Organization | MCP Server Name | Port | MCP Tool Prefix |
-|-------------|----------------|------|-----------------|
-| `byronwilliamscpa` | `sonarqube` | 8090 | `mcp__sonarqube__` |
-| `williaby` | `sonarqube-williaby` | 8091 | `mcp__sonarqube-williaby__` |
-
-Both servers are Docker containers running in HTTP transport mode. They are registered
-globally in `~/.claude/settings.json` and available to all projects.
+Route to the correct MCP server based on the detected organization. Both
+servers are Docker containers running in HTTP transport mode, registered
+globally in `~/.claude/settings.json` and available to all projects. The
+org, server name, port, and tool-prefix mapping is per-instance
+configuration, not skill logic: see `context/orgs.md` for the current table.
 
 ### Step 3: Execute Requested Mode
 
@@ -373,27 +382,13 @@ then validates against the remote server. Report all findings as a checklist.
 **1. Infrastructure checks:**
 
 - [ ] Docker is running (`docker ps` succeeds)
-- [ ] `sonarqube-mcp` container is running on port 8090
-- [ ] `sonarqube-mcp-williaby` container is running on port 8091
+- [ ] Each configured org's MCP container is running on its assigned port
+      (see `context/orgs.md` for the container names and ports)
 - [ ] MCP servers respond (`curl -sf http://localhost:{port}/mcp` for both)
 - [ ] `SONARQUBE_TOKEN` environment variable is set (check `$SONARQUBE_TOKEN`)
 
-If Docker or containers are down, provide restart commands:
-```bash
-# Start Docker Desktop from Windows (WSL2 environment)
-# Then containers auto-restart. If containers were removed:
-docker run --init -d --name sonarqube-mcp --restart unless-stopped \
-  -v ~/.sonarqube-mcp-storage:/app/storage \
-  -e SONARQUBE_TOKEN -e SONARQUBE_ORG=byronwilliamscpa \
-  -e SONARQUBE_TRANSPORT=http -e SONARQUBE_HTTP_PORT=8090 \
-  -e SONARQUBE_HTTP_HOST=0.0.0.0 -p 8090:8090 mcp/sonarqube
-
-docker run --init -d --name sonarqube-mcp-williaby --restart unless-stopped \
-  -v ~/.sonarqube-mcp-storage-williaby:/app/storage \
-  -e SONARQUBE_TOKEN -e SONARQUBE_ORG=williaby \
-  -e SONARQUBE_TRANSPORT=http -e SONARQUBE_HTTP_PORT=8091 \
-  -e SONARQUBE_HTTP_HOST=0.0.0.0 -p 8091:8091 mcp/sonarqube
-```
+If Docker or containers are down, restart commands per org are in
+`context/orgs.md`.
 
 **2. Project configuration checks:**
 
@@ -410,8 +405,8 @@ Read each config source and cross-validate. Flag any of these problems:
 - [ ] **Missing organization**: `sonar-project.properties` exists but has no
       `sonar.organization` field. This field is REQUIRED for SonarCloud (not needed for
       self-hosted SonarQube Server, but we use SonarCloud).
-- [ ] **Unknown organization**: Organization is not `byronwilliamscpa` or `williaby` —
-      no MCP server is configured for it
+- [ ] **Unknown organization**: Organization does not match any org listed in
+      `context/orgs.md`, so no MCP server is configured for it
 - [ ] **connectionId vs org**: `.vscode/settings.json` `connectionId` should match the
       org name used in `.sonarlint/connectedMode.json` `sonarCloudOrganization`
 
@@ -538,8 +533,9 @@ Both MCP servers expose these tools (use the appropriate prefix):
   running, all MCP tools will fail. Run `/sonarcloud check` to diagnose.
 - **HTTP transport**: Servers use HTTP mode (not stdio) on ports 8090/8091 due to
   Docker stdio buffering issues with Java-based MCP servers.
-- **Analyzer cache**: Plugins are cached in `~/.sonarqube-mcp-storage/` and
-  `~/.sonarqube-mcp-storage-williaby/`. First start after clearing cache takes ~60s.
+- **Analyzer cache**: Plugins are cached per org under `~/.sonarqube-mcp-storage*`
+  (see `context/orgs.md` for the exact per-org paths). First start after
+  clearing cache takes ~60s.
 - **Token location**: `SONARQUBE_TOKEN` is exported in `~/.bashrc` and referenced
   by `~/.claude/settings.json`. Same token works for both orgs.
 - **Read-only by default**: Only use `change_sonar_issue_status` when the user
@@ -552,9 +548,7 @@ Both MCP servers expose these tools (use the appropriate prefix):
 - **check_quality_gate.py**: Some projects have `scripts/check_quality_gate.py`
   that queries the SonarCloud API directly with LLM governance tag mapping.
 
-## Known Project Configurations
+## Org-Specific Details
 
-| Org | Project | Key | Region |
-|-----|---------|-----|--------|
-| byronwilliamscpa | .claude | `ByronWilliamsCPA_.claude` | EU |
-| williaby | monte_carlo | `williaby_monte_carlo` | EU |
+Org-specific instance details (MCP routing table, container restart commands,
+analyzer cache paths, known project configurations): see `context/orgs.md`.
