@@ -79,9 +79,6 @@ Identify:
 - **Purpose**: Why these changes were made
 - **Impact**: Benefits, risks, breaking changes
 - **Testing**: What validation was done or needed
-- **CHANGELOG**: If any commit uses type `feat`, `fix`, `perf`, or includes `!` (breaking
-  change), verify that `CHANGELOG.md` has been updated. If not, note it as a required
-  action before PR creation.
 - **Size**: Count total lines changed (`git diff $(git merge-base HEAD main)..HEAD --stat |
   tail -1`). If > 500 lines, consider whether the PR can be split. Recommend a split when
   changes span unrelated concerns (for example, a feature addition combined with a
@@ -129,7 +126,6 @@ Omit this section for pure code changes with no deployment side-effects.]
 - [ ] Format passes (`uv run ruff format --check`)
 - [ ] Linting passes (`uv run ruff check`)
 - [ ] Type checking passes (`uv run basedpyright`)
-- [ ] CHANGELOG.md updated (required for feat, fix, perf, or breaking changes)
 
 ## Notes
 
@@ -200,7 +196,7 @@ time:
 
 1. **Re-sync immediately before merge.** `gh pr merge --auto` plus update-branch is the
    efficient loop, but the PR must be up-to-date against the latest base at merge time.
-2. **Apply skip/changelog labels BEFORE the synchronize push.** A label only takes effect if
+2. **Apply skip labels BEFORE the synchronize push.** A label only takes effect if
    present before the push that triggers the workflows. Applying it after requires an empty
    commit to re-trigger; a bare label event does not re-run `pull_request` workflows.
 3. **Dismiss stale bot reviews.** A `coderabbit`/Copilot review left in CHANGES_REQUESTED
@@ -213,7 +209,7 @@ time:
 6. **Diff the merged file vs base to verify semantic correctness.** A textual auto-merge can
    be semantically wrong. Conflict-resolution heuristic: for files already changed by merged
    PRs take the base branch's version (never revert merged work); keep the PR's version only
-   for files unique to it; union additive doc sections (e.g., CHANGELOG).
+   for files unique to it; union additive doc sections (e.g., a reference index or catalog).
 
 Verify the actual gate state (`gh pr view <n> --json mergeStateStatus,statusCheckRollup`)
 rather than waiting on a never-reported required context.
@@ -267,7 +263,6 @@ unblocks the enterprise customer pilot that requires SSO. Tracks #142.
 - [x] Format passes (`uv run ruff format --check`)
 - [x] Linting passes (`uv run ruff check`)
 - [x] Type checking passes (`uv run basedpyright`)
-- [x] CHANGELOG.md updated
 
 ## Notes
 

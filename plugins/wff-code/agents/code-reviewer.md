@@ -66,7 +66,6 @@ forward from this repo's prior review checklist:
 - [ ] Public APIs are documented
 - [ ] Complex logic has comments
 - [ ] README updated if needed
-- [ ] CHANGELOG entry added
 
 ### Security
 

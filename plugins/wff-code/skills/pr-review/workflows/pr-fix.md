@@ -190,14 +190,12 @@ For each check with `conclusion` not `success` and not `neutral`, do the followi
 | basedpyright, type | Type-check | Fix annotations |
 | Bandit, Security, security-analysis | Security | Fix flagged patterns |
 | Dead Code, vulture | Dead code | Remove (confidence >= 90%) |
-| Changelog | Changelog | Add entry from PR title |
 | Link, lychee | Links | Fix broken doc links |
 | REUSE, License | License | Add/fix headers |
 | Compatibility | Py version | Fix 3.10+ incompatibilities |
 | SBOM | SBOM | Fix dependency declarations |
 | SonarCloud | Quality gate | Defer to Step 1c |
 | qlty | Quality gate | Defer to Step 1c handling; enumerate locally if the qlty CLI is available (see Step 5b) |
-| Changelog | Changelog (label-aware) | If the gate's pass condition is "CHANGELOG edited OR skip-label present" (`if: !contains(...labels..., 'skip-changelog')`), the remedy is commit-type-dependent: release-impacting commits (feat/fix/perf/breaking) need an entry; docs/chore/test/refactor need the skip label. See Step 4 Changelog enforcement for the label + re-trigger ordering. |
 | Reusable workflow startup_failure (0 jobs, no logs, "workflow file issue") | Workflow-load failure | Not a step failure; diagnose at file/reference level. Check `uses:@<sha>` reachability via `gh api repos/<owner>/<repo>/compare/<default>...<sha>`; if `diverged` (orphaned by a squash-merge), re-pin to a SHA reachable from the reusable repo's default branch that contains the file and exposes the same `workflow_call` inputs. `contents?ref=<sha>` serves dangling commits, so existence checks mislead; use `compare`. Validate cheaply with `workflow_dispatch` on a throwaway branch (startup validation runs at load time, before job `if:`). When a failure appears after an edit, confirm causation by reverting the suspected change on the current base before committing to a fix direction. |
 | Failing reusable-workflow check (job renders as `<workflow> / <job>`, caller uses `uses: org/repo/...@<ref>`) and the FIX is to the workflow body | Wrong-ref fix risk | Before authoring a fix, resolve the running definition. For a workflow consumed via `uses: ...@<sha>`, the running body is whatever that SHA resolves to; it is NOT necessarily the reusable repo's default branch. Read the caller's pinned ref and `gh api compare` it against main AND any open-PR branch heads to identify which definition actually runs and will become canonical. A fix landed on the wrong ref (e.g. main, when the caller pins a diverged in-flight rework branch) is cosmetic, will not clear the observed failure, and can collide with an open rework PR of the same file. Fix the ref that runs. |
 | GitGuardian | Secrets | Alert user only, never auto-fix |
@@ -368,7 +366,7 @@ partition must drive pr-fix prioritisation and the user-facing plan, not just th
 tier.
 
 **Classify each fix as code-changing vs GitHub-metadata-only** (PR title/body edits,
-thread resolution, label changes such as `skip-changelog`, comment replies). Record
+thread resolution, label changes, comment replies). Record
 `HAS_CODE_FIXES = true` only if at least one fix touches a working-tree file. This gates
 Step 3: a fix set that mutates no files needs no worktree.
 
@@ -489,8 +487,8 @@ pinned to a CI-supported version before any Step 5a gate or commit:
 
 **Edit precondition is path-specific (worktree vs main tree).** The Edit tool's
 "file has been read" precondition keys on the exact absolute path, not on content. A
-file Read earlier from the main tree (`/repo/CHANGELOG.md`) does NOT satisfy an Edit on
-the worktree copy (`/repo/.worktrees/fix-prN/CHANGELOG.md`); the Edit rejects with "File
+file Read earlier from the main tree (`/repo/README.md`) does NOT satisfy an Edit on
+the worktree copy (`/repo/.worktrees/fix-prN/README.md`); the Edit rejects with "File
 has not been read yet." Before editing ANY file inside the worktree, Read it from the
 worktree path first, ideally with offset/limit near the insertion point. Never edit a
 worktree file on the strength of having read its main-tree counterpart.
@@ -562,33 +560,14 @@ and `uv.lock` and recreate the AG04 trust gap that Step 5a's tiers close).
   the test-fix category as "verification deferred to Step 5a" and
   proceed to the next category.
 
-**Changelog enforcement (label-aware):** Check whether any commit on this branch (since
-`git merge-base HEAD origin/{BASE_BRANCH}`) uses type `feat`, `fix`, `perf`, or
-includes `!` (breaking change).
-
-- Release-impacting commits exist: generate an entry from the PR title, commit messages,
-  and changed files, and place it under `[Unreleased]` in CHANGELOG.md.
-- No release-impacting commits (docs/chore/test/refactor only): a red required Changelog
-  check is cleared only by the remedy the workflow accepts, and merely noting "no entry
-  required" leaves the gate RED. Inspect the gate. When its pass condition is
-  "CHANGELOG edited OR a skip label present" (`if: !contains(...labels..., 'skip-changelog')`),
-  apply the repo's changelog-skip label (commonly `skip-changelog`, confirm via
-  `gh label list`) rather than adding a wrong entry or silently skipping:
-
-  ```bash
-  gh pr edit "$PR_NUMBER" --repo "$OWNER/$REPO" --add-label skip-changelog
-  ```
-
-  **Re-trigger ordering matters.** The label only takes effect on a run whose triggering
-  event already carried it. If the workflow's `on:` block lacks `labeled` (commonly it is
-  only `[opened, synchronize, reopened]`), adding the label does nothing to the already-red
-  check, and a plain "re-run failed job" replays the original label-free payload and fails
-  again. Apply the label BEFORE the next push/rebase-push (or close+reopen) so the resulting
-  synchronize-event payload includes it. Inspect the `on:` types before assuming a label
-  change re-runs anything.
-
-  If no skip-label bypass exists, note "CHANGELOG not required: no feat/fix/perf/breaking
-  changes on this branch" and surface the still-red gate to the user.
+**Do NOT hand-edit `CHANGELOG.md` and do NOT apply changelog-skip labels.** The changelog
+is generated at release time by python-semantic-release from Conventional Commits; there is
+no per-PR changelog gate to satisfy. The org `Changelog Check` job is a deprecated no-op
+that always passes (see `ByronWilliamsCPA/.github` PR #288), so a red required "Changelog"
+check on any current repo indicates a stale pinned workflow ref, not a missing entry:
+diagnose it as a workflow-load/ref issue, never by fabricating a `[Unreleased]` entry. The
+release-impacting signal lives in the PR title and commit types, which the commit-type
+validation below enforces.
 
 **Invalid commit-type fixes (non-interactive reword):** When a commit on the branch uses
 an invalid or non-allowed Conventional Commit type (a Critical CLAUDE.md violation),
@@ -1599,7 +1578,7 @@ After pushing a narrow fix, check `gh api repos/{OWNER}/{REPO}/commits/$PUSH_SHA
 for each required context; if a required context is missing on the head, the PR is silently
 blocked. Re-trigger it by ensuring the final push touches that workflow's trigger paths (for
 example, bundle the fixes so the last commit also edits a path the required workflow watches,
-such as a CHANGELOG entry). This is the same phantom/never-reported required-check failure
+such as a file under that workflow's `paths:` filter). This is the same phantom/never-reported required-check failure
 mode pr-review documents, surfacing here via path-filtered re-triggers; a green prior run does
 not carry forward to a new head.
 
