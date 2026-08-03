@@ -808,8 +808,8 @@ Five criteria currently GAP. For each: the exact badge questionnaire text, what 
 ### change_control_release_notes_vulns (MUST)
 
 **Criterion text:** "The project MUST identify each vulnerability in its change log."
-**What satisfies it:** CHANGELOG entries for security fixes explicitly cite the CVE ID (e.g., `CVE-2024-12345`).
-**Remediation:** Add to CLAUDE.md release standard: "CHANGELOG entries that fix a security vulnerability MUST include the CVE ID if one has been assigned. Format: `- fix(security): resolve CVE-2024-XXXXX -- [brief description]`." Apply retroactively to any existing vulnerability fix entries in CHANGELOG.md.
+**What satisfies it:** The generated CHANGELOG entry for a security fix cites the CVE ID (e.g., `CVE-2024-12345`). Because python-semantic-release renders the changelog from Conventional Commits at release, the CVE ID must originate in the fixing commit message.
+**Remediation:** Do NOT hand-edit `CHANGELOG.md`; the org retired per-PR changelog edits (see `ByronWilliamsCPA/.github` PR #288) because they conflicted under the merge queue. Instead, ensure the fixing commit names the CVE so PSR surfaces it at release, e.g. `fix(security): resolve CVE-2024-XXXXX -- [brief description]`. Add to the CLAUDE.md release standard: "Commits that fix a security vulnerability MUST include the CVE ID in the commit message if one has been assigned." Existing pre-PSR entries already in `CHANGELOG.md` may be left as-is.
 
 ### reporting_vulnerability_report_private (MUST)
 

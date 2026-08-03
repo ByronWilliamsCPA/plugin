@@ -130,7 +130,6 @@ Finalize testing, documentation, and release preparation.
 - ✅ All tests passing
 - ✅ No critical/high security issues
 - ✅ README covers all usage
-- ✅ CHANGELOG updated
 
 ### Tasks
 | Task | Est. Hours | Status |

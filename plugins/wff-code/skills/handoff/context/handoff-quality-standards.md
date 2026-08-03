@@ -55,8 +55,8 @@ paragraph three sections away.
 secondary edits that must accompany the primary change:
 
 - **Standards manifest check addition:** also update `last_updated` in the
-  manifest header, add a `### Added` CHANGELOG entry, classify the commit per
-  `manifest-changes.md` (feat vs fix)
+  manifest header and classify the commit per `manifest-changes.md` (feat vs
+  fix); the changelog is generated from the commit at release, not hand-edited
 - **Pre-commit hook addition:** also verify `rev:` is pinned to a SHA, add to
   `additional_dependencies` if needed, run `pre-commit autoupdate` or pin
   manually

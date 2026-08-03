@@ -105,6 +105,7 @@ the precise gap it does not yet name explicitly (see escalation notes for this r
 | general | `general-compliance-auditor` | unclassified |
 | mkdocs | `mkdocs-auditor` | MKDOCS-* (skipped when mkdocs.yml absent) |
 | api | `openapi-compliance-agent` (via check-repo-compliance.py) | API-001..005 (applies_to: api_repos; skip when api.servesApi is false) |
+| operations | `operations-posture-auditor` | OPS-* (applies_to: deployed_repos; skip when isDeployed is false, UNKNOWN when unset) |
 
 ### Pre-commit Domain: silent-skip wrapper defeats PC-* presence checks (obs 163)
 
@@ -206,16 +207,58 @@ Robust patterns:
 Apply to any new bash check in this skill or in domain agent prompts that
 calls `gh api ... --jq` and tests for non-empty output.
 
-### API Domain: applies_to Conditional
+### applies_to Conditionals: tri-state, and never a silent skip
 
-Before dispatching API-domain checks, read `api.servesApi` from the target
-repo's catalog entry. The canonical catalog path is
+This rule is universal. It governs every `applies_to` scope, not just the API
+domain. The canonical catalog path is
 `${CLAUDE_HOME:-$HOME/.claude}/docs/reference/github-repos.json`; inside this
 repo it is also reachable at the relative path `docs/reference/github-repos.json`.
 Both refer to the same file (the `~/.claude` location is a symlink installed
-by `setup.sh`). If `api.servesApi` is absent or `false`, skip all API-*
-checks without raising FINDINGs; log `SKIP (api.servesApi: false)` in the
-audit summary. API-* checks run only for repos where `api.servesApi: true`.
+by `setup.sh`).
+
+| Scope | Catalog flag | Domain | Checks |
+| --- | --- | --- | --- |
+| `api_repos` | `api.servesApi` | api | API-001..005 |
+| `docs_repos` | `publishesDocs` | mkdocs | MKDOCS-001..011, 013, 014 |
+| `deployed_repos` | `isDeployed` | operations | OPS-* |
+
+Resolve each scope to one of three states. Absent is not false:
+
+| Flag value | Verdict | Behaviour |
+| --- | --- | --- |
+| `true` | APPLIES | Evaluate the domain normally. |
+| `false` | SKIP | Skip the domain, log the SKIP line below, raise no FINDINGs. |
+| absent, `null`, non-boolean, or repo absent from catalog | UNKNOWN | Skip the domain AND raise a FINDING saying the catalog needs populating. |
+
+**Coercing absent or null to false is the defect this rule exists to prevent.**
+It silently reclassifies "nobody has declared" as "does not apply", which makes
+a skipped domain indistinguishable from a passing one. The MkDocs domain shipped
+in exactly that state: `publishesDocs` was absent on 44 of 45 catalog entries and
+`false` on the 45th, so all 13 scoped MKDOCS-* checks evaluated to a silent skip
+fleet-wide and the audit reported clean. A check that is named but cannot fail is
+worse than a check that is absent.
+
+**Always print a line per scope, in every audit summary, including when the
+count is zero.** A skip that prints nothing is the failure mode:
+
+```text
+APPLICABILITY BY SCOPE
+docs_repos (flag: publishesDocs, domain: mkdocs, 13 checks/repo)
+  APPLIES    0 repo(s)
+  SKIP (publishesDocs: false)    1 repo(s), 13 check evaluations skipped
+  UNKNOWN    1 repo(s), 13 check evaluations skipped -- catalog needs populating
+      [UNKNOWN] org/repo: publishesDocs absent from catalog entry; populate it
+```
+
+**Fleet-level reach assertion.** On a full sweep (not a single-repo run), any
+scope where *zero* repos evaluate APPLIES is a dead domain: its checks exist, the
+audit runs, and nothing is ever evaluated. Report it and fail the sweep. This is
+the one place the MkDocs gap was detectable, because each individual repo's skip
+looked locally correct.
+
+The deterministic path implements all of the above in
+`scripts/check-repo-compliance.py` (`resolve_applicability`,
+`render_scope_summary`, `assert_scopes_reachable`). The LLM path must match it.
 
 API-001 through API-003 are evaluated by `scripts/check-repo-compliance.py` via
 the GitHub Contents API. API-004 and API-005 read from the catalog directly
@@ -320,6 +363,10 @@ Cached review data (domain-scoped):
   claude-docs-auditor: (no relevant cachedReview keys; verify on disk)
   ossf-compliance-auditor: scorecard, ossfBadge, codeql, secretScanning
   mkdocs-auditor: (no relevant cachedReview keys; verify on disk)
+  operations-posture-auditor: (no relevant cachedReview keys; the catalog
+    review schema describes repo and CI state, not deployed-system state.
+    This agent gathers its own evidence via Bash and the docs/operations/
+    attestation files.)
   general-compliance-auditor: full cachedReview>
 ```
 

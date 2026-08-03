@@ -179,19 +179,8 @@ REQUIRED=$(gh api "repos/$OWNER/$REPO/branches/$BASE_BRANCH/protection/required_
 - Failing check is NOT required and `MERGE_STATE` is `UNSTABLE`: emit `[Important]` with
   the annotation "non-required, does not block merge" plus the check's own remediation
   hint. Do not emit BUILD FAILING for a non-required check. Rigidly labelling a trivially
-  remediable non-required check (e.g., a Changelog gate clearable by a `skip-changelog`
-  label on a docs/test PR) as Critical overstates impact and pushes the user toward
-  unnecessary code changes.
-
-**Changelog-gate remedy is commit-type-dependent.** When the failing check is a Changelog
-gate whose pass condition is "CHANGELOG.md edited OR a skip label present" (a job-level
-`if: !contains(...labels..., 'skip-changelog')` guard), the recommended fix depends on the
-branch's commit types, not on adding an entry reflexively. If the branch has no
-`feat`/`fix`/`perf`/breaking commits (docs/chore/test/refactor only), the remedy is the
-repo's changelog-skip label (commonly `skip-changelog`, confirm via `gh label list`), NOT
-a fabricated CHANGELOG entry. Note the re-trigger ordering for pr-fix: the label only takes
-effect on a run whose triggering event already carried it, so it must be applied BEFORE the
-next push/reopen if the workflow's `on:` block lacks `labeled`.
+  remediable non-required check (e.g., a non-required Documentation Links or spell-check
+  gate) as Critical overstates impact and pushes the user toward unnecessary code changes.
 
 For each failing check in `CI_CHECKS`:
 
@@ -488,7 +477,7 @@ only:
 - confirmation that the **dependency-security CI checks** (Dependency Review, Socket,
   Trivy, SonarCloud) are green.
 
-Agents A (CLAUDE.md/CHANGELOG), C, D, J, and M still apply if not skipped by the
+Agents A (CLAUDE.md), C, D, J, and M still apply if not skipped by the
 docs-only rule.
 
 **Trivial-change fast path (scale effort to the analyzable surface, not just line count).**
@@ -824,12 +813,6 @@ or `.pre-commit-config.yaml` in the diff actually invokes it. A tool installed o
 Report:
   [Suggested] Dev dep "{tool}" declared but not wired to CI or pre-commit.
 
-Also check: if the commit history contains any `feat:`, `fix:`, `perf:`, or `!`
-(breaking) commit (run `gh api repos/{OWNER}/{REPO}/commits?sha={HEAD_SHA}&per_page=20`
-and scan the commit messages), verify that `CHANGELOG.md` appears in CHANGED_FILES.
-If it is absent, report:
-`[Important] CLAUDE.md: CHANGELOG.md not updated for feat/fix/perf/breaking change`
-
 Also check: if `.claude/settings.json` appears in CHANGED_FILES, verify all `Bash()`
 permission patterns use space syntax (e.g., `Bash(git *)`) not colon syntax (e.g.,
 `Bash(git:*)`). Colon syntax is the MCP tool format and does not match shell commands;
@@ -844,8 +827,9 @@ registration: a rename that reads as internally consistent in narrative document
 still be broken against the registry and fail at runtime. Report:
   [Critical] CLAUDE.md: renamed identifier "{new}" does not resolve in {.mcp.json|settings.json|live tool list}; the rename breaks every reference at runtime.
 
-Also check commit types: if commit history is available (from the CHANGELOG check),
-cross-check each commit type against the project's conventional-commits allowed-type
+Also check commit types: fetch the commit history
+(`gh api repos/{OWNER}/{REPO}/commits?sha={HEAD_SHA}&per_page=20` and scan the commit
+messages), then cross-check each commit type against the project's conventional-commits allowed-type
 table (fetch `.claude/standards/conventional-commits.md` via `gh api repos/{OWNER}/{REPO}/contents/.claude/standards/conventional-commits.md`;
 if absent, use the default set: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert).
 Any commit type not in that table (e.g., `security:`, `ops:`, `claude:`) should be flagged:
@@ -1397,7 +1381,7 @@ high scores and cluster at round numbers; these constraints correct both):
   49 (Suggested) unless the finding evidences an actual untested code-behavior risk in
   the diff. A statically-verifiable no-op (e.g., a boolean input that is never read,
   default false) is not Critical.
-- Doc-nit findings (missing CHANGELOG entry, doc count off-by-one, missing Bash
+- Doc-nit findings (doc count off-by-one, missing Bash
   permissions allow rule, SKILL.md frontmatter gap, style/vocabulary inconsistency) are
   capped at 65 (Important) unless they break a build, lose data, or violate a hard
   CLAUDE.md rule.
@@ -1675,7 +1659,7 @@ current diff. The PR was likely narrowed since that review. Verify the PR
 description still matches the current diff scope.
 ```
 
-Additionally, scan the branch commit subjects (already fetched for the CHANGELOG
+Additionally, scan the branch commit subjects (already fetched for the commit-type
 check) for removal verbs: "remove", "drop", "revert", "strip ... from PR". When
 found alongside PR body claims of those artifacts, emit:
 

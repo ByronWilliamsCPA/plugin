@@ -46,6 +46,129 @@ Focus on patterns unique to AI-assisted development:
 - AI-hallucinated package names or API endpoints
 - Missing input validation in AI-generated route handlers
 
+### Detection Patterns
+
+**CD01 Identity, Authentication and Authorization Misuse:**
+
+- Route handlers with no auth decorator where a sibling handler in the same
+  module has one (`@login_required`, `Depends(get_current_user)`)
+- Authorization enforced in the UI layer only, with the underlying API route
+  reachable unauthenticated
+- One service-account credential reused across environments, or an OAuth client
+  ID and secret shared between development and production config
+- Ownership checks missing on record lookups: a query keyed on a request ID with
+  no `user=` or `tenant=` filter
+- Hardcoded bypass flags (`if user.email.endswith("@internal")`, `SKIP_AUTH`)
+
+**CD02 Security Misconfiguration:**
+
+- `DEBUG = True`, `app.run(debug=True)`, or `FastAPI(debug=True)` reachable from
+  a production settings path
+- Admin interfaces mounted at a default path with no auth or IP restriction
+  (Django admin, `flask_admin`, `/admin`)
+- `ALLOWED_HOSTS = ["*"]` or `CORSMiddleware(allow_origins=["*"],
+  allow_credentials=True)`
+- Default or seeded credentials left in config, fixtures, or migration files
+- Framework error pages returned to clients with stack traces intact
+
+**CD03 Injection Handling Failures:**
+
+- f-string, `.format()`, or `%` interpolation building SQL instead of
+  parameterized queries
+- `subprocess.run(shell=True)`, `os.system()`, `eval()`, or `exec()` on any
+  value derived from a request
+- Template output marked trusted on user input (`|safe`, `mark_safe`,
+  `dangerouslySetInnerHTML`)
+- NoSQL queries built by splatting a raw request dict into a filter
+- Generated code that validates on the client and not again on the server
+
+**CD04 Data and Privacy Exposure:**
+
+- PII written to logs: whole request or response bodies logged, or direct field
+  logging (`logger.info(user.email)`)
+- Serializers exposing every column (`fields = "__all__"`, `SELECT *` returned
+  straight to a response)
+- Sensitive fields persisted to plaintext columns with no encryption at rest
+- Connector or export configured to pull entire tables when a few columns are
+  used
+- No deletion path for user data, so a retention policy cannot be honoured
+
+**CD05 Insecure Component and Dependency Management:**
+
+- An imported module with no corresponding entry in any dependency manifest,
+  the signature of a hallucinated package
+- Package names one edit away from a popular library (typosquat adjacency)
+- Dependencies declared with no version constraint and no committed lockfile
+- `pip install` or `npm install` from a git ref, arbitrary URL, or non-default
+  index
+- Dependencies added in the same commit as the code that uses them, with no
+  advisory check in between
+
+**CD06 Excessive Permissions and Oversharing:**
+
+- OAuth scopes broader than the code exercises (full-mailbox or full-drive scope
+  for a single-folder feature)
+- Cloud IAM policies with wildcard actions or resources (`"Action": "*"`)
+- Share links or bucket ACLs set to anyone-with-the-link or public-read
+- Connectors configured with account-wide access where record-level would do
+- Database grants to the application role beyond the statements it issues
+
+**CD07 Insufficient Logging and Monitoring:** NOT STATICALLY DETECTABLE
+
+- Source analysis can see whether a log call exists; it cannot see whether the
+  log is retained, queryable, or watched. Whether an anomaly produces an alert
+  that reaches a human is a runtime property of a log sink and a notification
+  channel, neither of which is in the repository.
+- Covered by: standards manifest `OPS-*` checks (domain: operations), evaluated
+  by the `operations-posture-auditor` agent, which is granted Bash to reach
+  runtime state. Specifically `OPS-005` (security events emitted against a
+  documented taxonomy, each greppable in source), `OPS-006` (alert rules
+  committed, naming a destination channel, with a recorded test-fire timestamp),
+  and `OPS-004` (log secret redaction proven by a test).
+- Statically detectable sub-signals only: authentication failure, authorization
+  denial, and input-validation rejection branches that emit no log call at all;
+  exception handlers that swallow without logging.
+
+**CD08 AI-Assisted Code Vulnerabilities:**
+
+- Deprecated idioms typical of stale training data: `datetime.utcnow()`,
+  `hashlib.md5` for passwords, `random` for tokens, Python 2 constructs
+- Placeholder values left in place: `your-api-key-here`, `example.com`,
+  `changeme`, `TODO: add validation`
+- Over-broad exception handling that swallows silently (`except Exception:
+  pass`), a common generation artifact
+- Calls to API methods that do not exist on the imported library version, the
+  hallucinated-API signature
+- Near-duplicate handlers with divergent validation, from repeated generation
+  rather than refactoring
+
+**CD09 Insecure Secrets Management:**
+
+- Literal API keys, tokens, connection strings, or passwords in source, config,
+  fixtures, or notebook outputs
+- A populated `.env` committed, or copied into an image by a Dockerfile `COPY`
+- Secrets exposed to the client bundle through a public-prefixed variable
+  (`NEXT_PUBLIC_`, `VITE_`, `REACT_APP_`)
+- Credentials passed as Docker build args, which persist in image layers
+- Supplement: `OPS-010` covers the runtime half, whether the deployed process
+  sources secrets from a secret manager rather than a baked-in file. Report
+  secret NAMES only, never values, and defang any secret-shaped evidence.
+
+**CD10 Inadequate Governance and Oversight:** NOT STATICALLY DETECTABLE
+
+- Whether a deployment was reviewed, who approved it, and what settings a
+  citizen developer changed in a vendor console are facts about a process and a
+  dashboard, not about a tree. Shadow IT is by definition the work that left no
+  trace in the repository, so its absence from source is not evidence.
+- Covered by: standards manifest `OPS-*` checks (domain: operations), evaluated
+  by the `operations-posture-auditor` agent. Specifically `OPS-012`
+  (managed-service console settings committed AND pushed by a workflow, so a
+  config file no workflow applies is caught rather than credited) and `OPS-001`
+  (deployed runtime configuration attested in a dated document).
+- Statically detectable sub-signals only: absent CODEOWNERS; no PR template or
+  required-review configuration; a committed vendor config file (for example
+  `supabase/config.toml`) that no workflow ever applies.
+
 ## Mode: review-tests / generate
 
 Verify that AI-generated code has been security-reviewed and that tests

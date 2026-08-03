@@ -173,35 +173,29 @@ session. The user should not be interrupted by the logging process.
 write it to the log file within the same turn or the immediately following
 turn — do not accumulate observations in memory for batch-writing later.** The
 act of writing is the enforcement mechanism; mental notes are not observations.
-Tie observation flushing to existing workflow checkpoints — e.g., when marking
-a TodoWrite item as completed, check whether any unlogged observations have
-accumulated and write them before proceeding.
+Tie observation flushing to something that already happens, not to a separate
+act of remembering. Writing at the moment of noticing is the primary
+mechanism. The two backstops below are ordered by how little each depends on
+the agent's attention.
 
-**Mandatory observation checkpoint after every 3rd TodoWrite completion:** After
-marking the 3rd, 6th, 9th (etc.) TodoWrite item as completed in a session,
-pause and explicitly ask: "Have any unlogged observations accumulated?" This is
-a hard checkpoint, not a suggestion — the skill has demonstrated that softer
-"check when completing items" guidance gets lost during cognitively demanding
-analytical work. The count doesn't need to be precise; the rule is: roughly
-every third completion, stop and flush. If nothing has accumulated, the pause
-costs seconds. If observations have accumulated, this prevents the common
-failure mode where the skill is loaded but no observations are written until
-the user explicitly asks.
+**Backstop 1, structural: the Stop hook.** At turn end,
+`scripts/hooks/task-observer-flush-check.py` compares the observation count
+against a baseline recorded at session start by
+`scripts/hooks/task-observer-reminder.sh`. When a session used tools to
+produce deliverables and logged nothing, the hook blocks turn end once and
+asks for a flush. It depends on nothing the agent has to remember, which is
+why it ranks first. An earlier version of this skill bound the checkpoint to
+TodoWrite completions, so a session that never called TodoWrite had no trigger
+at all; that gap is what the hook closes.
 
-**Subagent-controller sessions are the highest-risk case for this checkpoint.**
-In a multi-task session where the controller dispatches implementer plus
-reviewer subagents per task (a spec-compliance review and a code-quality review
-each round), the cognitive load of coordinating those review loops reliably
-crowds out observation logging. A six-task session ran roughly twelve subagent
-dispatches with multiple correction moments and wrote zero observations until
-the closing surfacing step. The "pause and ask" framing loses to this work
-because it is a separate reminder that competes for attention. Bind the
-checkpoint to an action that already happens: immediately before dispatching
-the next implementer subagent (or marking the next task completed), WRITE any
-accumulated observations to the log. The write is the checkpoint, not a mental
-note to write later. Observation checkpoints that compete with cognitively
-demanding work lose to that work; attaching the write to an unavoidable
-existing step is what makes it stick.
+**Backstop 2, behavioural: flush at batch boundaries.** Immediately before
+dispatching the next subagent, marking a task item completed, or starting a
+new unit of work, WRITE any accumulated observations. The write is the
+checkpoint, not a mental note to write later. Subagent-controller sessions are
+the highest-risk case: one six-task session ran roughly twelve subagent
+dispatches with several correction moments and wrote zero observations until
+the closing step. A checkpoint that competes with cognitively demanding work
+loses to that work, so attach the write to a step that has to happen anyway.
 
 **Before assigning any observation number, run a mandatory pre-logging step:**
 Search the entire log file for all lines matching the pattern `### Observation \d+:`,
