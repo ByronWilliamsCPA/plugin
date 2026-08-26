@@ -87,7 +87,7 @@ looks like. Every launch should be reversible, observable, and incremental.
 - [ ] README updated with any new setup requirements
 - [ ] API documentation current
 - [ ] ADRs written for any architectural decisions
-- [ ] CHANGELOG updated (OpenSSF release gate)
+- [ ] Release commits are Conventional so semantic-release generates the CHANGELOG at release (OpenSSF release gate; do not hand-edit CHANGELOG.md)
 - [ ] User-facing documentation updated (if applicable)
 
 ## Feature Flag Strategy
