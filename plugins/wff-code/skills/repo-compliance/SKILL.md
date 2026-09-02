@@ -173,11 +173,13 @@ Two failure modes make a "required" CI gate non-enforcing while every presence c
 
 Before evaluating a NEW tool for a capability (license compliance, SBOM, vuln scanning),
 grep the existing reusable workflows and the manifest for an existing or dormant equivalent:
-disabled flags, warn-only gates, unused action inputs (e.g., a `deny-licenses` lever in
-`dependency-review-action`, a `python-sbom.yml` license job, a REUSE/SPDX gate). Frame the
-evaluation as the marginal gain over what already exists (including the cost of redundancy),
-not as a blank-slate integration. Capabilities are often already present but disabled or
-shallow.
+disabled flags, warn-only gates, unused action inputs (e.g., the `fail-on-forbidden-licenses`
+flag in a `python-sbom.yml` license job, a REUSE/SPDX gate). Frame the evaluation as the
+marginal gain over what already exists (including the cost of redundancy), not as a
+blank-slate integration. Capabilities are often already present but disabled or shallow.
+`actions/dependency-review-action`'s `deny-licenses` lever, formerly cited here as an example,
+was retired fleet-wide (2026-09) along with `dependency-review.yml`: the action now requires
+paid GitHub Advanced Security. Do not propose re-enabling it as a "dormant capability."
 
 **CI pinning exception list: slsa-github-generator requires tag refs**
 
@@ -280,9 +282,13 @@ limitations (e.g., GitHub PVR unavailable) rather than compliance gaps.
 **Examples:**
 - Repo `homelab-infra` has `repositoryType: "infrastructure"` and `isPrivate: true`
   - Type profile exempts `release.yml`, `release-sign.yml`, `sbom.yml`, `coverage.yml`, `python-compatibility.yml`, `reuse.yml`
-  - Visibility profile additionally exempts `codeql.yml` (GHAS required) and check IDs `OSSF-001`, `OSSF-006`
-  - Absent `release.yml` is logged as `EXEMPT (infrastructure type)`, absent `codeql.yml` as `EXEMPT (private repo)`
+  - Visibility profile additionally exempts check IDs `OSSF-001`, `OSSF-006`
+  - Absent `release.yml` is logged as `EXEMPT (infrastructure type)`
   - OSSF-001 finding is suppressed with `EXEMPT (private repo: badge API is public OSS only)`
+  - `codeql.yml` is absent fleet-wide (2026-09): CodeQL now requires paid GitHub Advanced
+    Security on every repo, public or private, so this is no longer a visibility-scoped
+    exemption. Do not log a `codeql.yml`-absence finding for any repo type or visibility;
+    it is expected everywhere, not just on private/infrastructure repos.
 
 ## Coordinator Prompt Template
 
