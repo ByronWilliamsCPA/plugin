@@ -47,6 +47,42 @@ For each source file in the target path:
 - CORS misconfiguration (wildcard origins)
 - Missing CSRF protection on state-changing endpoints
 
+**A02 Security Misconfiguration:**
+
+- `DEBUG = True`, `app.run(debug=True)`, or `FastAPI(debug=True)` reachable
+  from a production settings path
+- Default or placeholder `SECRET_KEY` / `JWT_SECRET` values left in settings
+  modules
+- `ALLOWED_HOSTS = ["*"]`, or `CORSMiddleware(allow_origins=["*"],
+  allow_credentials=True)`
+- No security headers middleware: no `Strict-Transport-Security`,
+  `X-Content-Type-Options`, or `Content-Security-Policy` set anywhere
+- Session cookies configured without `secure`, `httponly`, or `samesite`
+  (CWE-1004)
+
+**A03 Software Supply Chain Failures:**
+
+- Dependencies declared with no version pin and no committed lockfile
+  (`uv.lock`, `poetry.lock`, `package-lock.json`)
+- `pip install` from a git ref, an arbitrary URL, or an `--index-url` pointing
+  at a non-default registry
+- GitHub Actions referenced by mutable tag (`uses: actions/checkout@v4`)
+  instead of a full commit SHA
+- `curl ... | bash` or `wget ... && sh` in Dockerfiles, install scripts, or
+  CI steps
+- Container base images pulled by `:latest` rather than by digest
+
+**A04 Cryptographic Failures:**
+
+- `hashlib.md5()`, `hashlib.sha1()`, or bare `hashlib.sha256()` used for
+  password storage instead of `bcrypt`, `argon2`, or `scrypt`
+- `random.random()` / `random.choice()` or time-seeded values used for tokens,
+  nonces, or salts instead of `secrets` / `os.urandom`
+- `verify=False` on `requests` / `httpx` calls, or `ssl.CERT_NONE` /
+  `check_hostname = False`
+- ECB mode (`AES.MODE_ECB`), a hardcoded IV, or a key literal in source
+- Sensitive fields persisted to plaintext columns with no encryption at rest
+
 **A05 Injection:**
 
 - f-string or .format() in SQL queries (use parameterized queries)
@@ -55,6 +91,22 @@ For each source file in the target path:
 - Unsanitized input in template rendering
 - Path construction with user input without sanitization
 
+**A06 Insecure Design:**
+
+- Sequential or otherwise predictable integer primary keys exposed directly as
+  public resource identifiers in routes (`/users/<id>`, `/orders/<id>`)
+  instead of a UUID or opaque token, enabling enumeration
+- Multi-step workflows (checkout, password reset, onboarding) with no
+  state-machine check confirming the prior step completed before the handler
+  for a later step runs
+- Business-rule limits (quantity, price, discount, transfer amount) enforced
+  only in frontend JavaScript, with no matching validation in the backend
+  handler that processes the same request
+- State-mutating endpoints (payment capture, balance transfer) with no
+  idempotency-key or nonce check, allowing the same request to be replayed
+- Debug, admin, or feature-flagged routes registered on the production router
+  with no environment guard around their registration
+
 **A07 Authentication Failures:**
 
 - Weak hashing (MD5, SHA1, SHA256 without salt for passwords)
@@ -62,6 +114,38 @@ For each source file in the target path:
 - Missing rate limiting on auth endpoints
 - Session tokens with insufficient entropy
 - Missing MFA enforcement on admin routes
+
+**A08 Software and Data Integrity Failures:**
+
+- `pickle.load()` / `pickle.loads()`, or `yaml.load()` without
+  `Loader=yaml.SafeLoader`, applied to data from an untrusted source (network
+  request, file upload, queue message)
+- Auto-update, plugin-loading, or artifact-fetch code that retrieves and
+  executes remote content with no signature or checksum verification (no
+  `hmac.compare_digest`, no `hashlib` digest check before use)
+- CI/CD workflow steps that consume a prior job's build artifact with no
+  SHA or checksum pin, or that download and execute a script over plain HTTP
+- `marshal.loads()`, `jsonpickle.decode()`, or a custom `__reduce__` /
+  `__setstate__` implementation that deserializes attacker-influenced payloads
+- JWT or signed-token verification disabled or weakened: `verify_signature=False`,
+  `options={"verify_signature": False}`, or `algorithms=["none"]` accepted
+
+**A09 Security Logging and Alerting Failures:** NOT STATICALLY DETECTABLE
+
+- Source analysis cannot observe a log stream, an alert rule, or an outbound
+  notification channel. The absence of a logging call is detectable; the absence
+  of alerting *on* that log is not, and neither is whether an alert reaches a human.
+- Covered by: standards manifest `OPS-*` checks (domain: operations), evaluated by
+  the `operations-posture-auditor` agent, which is granted Bash to reach runtime
+  state. Specifically `OPS-005` (security events emitted against a documented
+  taxonomy), `OPS-006` (alert rules committed, naming a destination channel, with a
+  recorded test-fire timestamp), and `OPS-004` (log secret redaction proven by a test).
+- Statically detectable sub-signals only: absence of any logging call in
+  authentication or authorization failure branches (`except` blocks around login,
+  token validation, or permission checks with no `logger.*` / `logging.*` call);
+  exception handlers that swallow the error with no logging (`except Exception:
+  pass`); log statements that interpolate raw credentials, tokens, or session
+  identifiers into the message (a redaction gap, not an alerting gap)
 
 **A10 Mishandling of Exceptional Conditions (NEW in 2025):**
 

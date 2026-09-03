@@ -201,6 +201,27 @@ Rules for every alert you create:
 4. Use two severities only: **page** (user-facing, act now) and **ticket** (degradation,
    act this week). A third tier becomes noise that trains people to ignore everything.
 
+**Security alerting is a distinct axis from symptom alerting.** The symptom rules
+above optimize for "users are hurt", which is the right default for reliability
+and the wrong one for an attack in progress: credential stuffing, enumeration, and
+scripted abuse degrade nothing a user feels until they succeed. Add rules for
+authentication-failure and authorization-denial spikes alongside the symptom set.
+Standards manifest `OPS-006` covers this and requires three things a reliability
+alert usually leaves implicit: the rule is **committed** (not configured only in a
+vendor console), it **names its destination channel**, and it carries a recorded
+**test-fire timestamp**. An alert that pages nobody is not alerting.
+
+Related manifest checks in the `operations` domain
+(`docs/standards-manifest.yaml`): `OPS-005` (security events emitted against a
+documented taxonomy, and greppable in source, so a taxonomy cannot document
+events the code never emits) and `OPS-004` (log secret redaction, proven by a
+test rather than by the redaction helper's presence).
+
+This skill is the human-facing narrative for instrumenting one service. The
+`OPS-*` checks are the durable half: they land in the compliance master log, get
+delta caching, fleet escalation at the 3-repo threshold, and staleness detection,
+none of which a skill provides. Use both.
+
 ### 7. Verify the telemetry itself
 
 Instrumentation is code; it can be wrong. Before calling the work done, trigger the

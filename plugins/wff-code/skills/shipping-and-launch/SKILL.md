@@ -46,8 +46,13 @@ looks like. Every launch should be reversible, observable, and incremental.
 - [ ] Input validation on all user-facing endpoints
 - [ ] Authentication and authorization checks in place
 - [ ] Security headers configured (CSP, HSTS, etc.)
-- [ ] Rate limiting on authentication endpoints
+- [ ] Rate limiting on authentication endpoints, with the configured limit recorded (`OPS-011`)
 - [ ] CORS configured to specific origins (not wildcard)
+- [ ] Application data-store role is not the table owner and does not hold BYPASSRLS (`OPS-002`)
+- [ ] Row-level security, if claimed, passes a two-direction test (`OPS-003`)
+- [ ] Logs redact secrets, proven by a test rather than by the filter's presence (`OPS-004`)
+- [ ] Public write paths (signup, password reset, contact forms) carry an anti-automation control (`OPS-009`)
+- [ ] Runtime secrets come from a secret manager, not a baked-in `.env` (`OPS-010`)
 
 ### Performance
 
@@ -64,6 +69,8 @@ looks like. Every launch should be reversible, observable, and incremental.
 - [ ] On-call questions for this feature are answerable from telemetry
 - [ ] Logging and error reporting configured
 - [ ] Symptom-based alerts created and test-fired
+- [ ] Security events emitted against a documented taxonomy: authn failure, authz denial, rate-limit trip, input-validation reject (`OPS-005`)
+- [ ] Security alerts are committed as rules, name their destination channel, and carry a recorded test-fire timestamp (`OPS-006`)
 
 ### Accessibility
 
@@ -76,11 +83,25 @@ looks like. Every launch should be reversible, observable, and incremental.
 
 ### Infrastructure
 
-- [ ] Environment variables set in production
+- [ ] Environment variables set in production, and attested in a dated runtime-config document (`OPS-001`)
 - [ ] Database migrations applied (or ready to apply)
 - [ ] DNS and SSL configured
 - [ ] CDN configured for static assets
 - [ ] Health check endpoint exists and responds
+- [ ] Backups inventoried with schedule, retention, and destination (`OPS-007`)
+- [ ] A restore drill has actually been performed and logged; a configured backup is not a tested one (`OPS-008`)
+- [ ] Managed-service console settings are committed AND pushed by a workflow, not just committed (`OPS-012`)
+
+> **`OPS-*` references above point to the `operations` domain in
+> `docs/standards-manifest.yaml`.** This checklist is the human-facing narrative
+> for a single deploy; the manifest checks are the durable half that lands in the
+> master log, gets delta caching, fleet escalation at the 3-repo threshold, and
+> staleness detection. Use both. A checkbox ticked here leaves no record; an
+> `OPS-*` finding does.
+>
+> The manifest checks are deliberately harder to satisfy than a checkbox: each
+> names a durable artifact rather than a state of the world. "Backups are
+> configured" ticks a box; `OPS-008` wants a dated restore-drill log entry.
 
 ### Documentation
 
