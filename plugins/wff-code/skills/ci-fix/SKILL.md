@@ -186,16 +186,18 @@ changes"), fix it as a real bug fix for main, and do not attribute it to the PR 
 same pattern applies to any path-filtered job (release workflows, security-analysis when no
 Python files changed).
 
-### Dependency-review license failures may be pre-existing policy debt (Obs 255)
+### SBOM license failures may be pre-existing policy debt (was: Obs 255, dependency-review-action)
 
-When the `dependency-review-action` gate fails on a license (not a vulnerability), distinguish "introduced by this PR" from "surfaced by this PR" before fixing. The gate only evaluates packages *changed* in the PR, so a routine Renovate version bump can surface a license-policy gap that already existed in the base branch.
+`dependency-review.yml` and the `actions/dependency-review-action` gate it ran were removed fleet-wide (2026-09): the action now requires paid GitHub Advanced Security (Code Security) and no longer functions on the free tier. This diff-scoped PR-time license/vulnerability gate is gone; the fleet's remaining license-compliance control is the post-merge, full-lockfile SBOM gate (`sbom.yml`, Trivy-based).
+
+The same "introduced by this PR" vs. "surfaced by this PR" distinction still applies to that gate: it evaluates the full lock file on every run, so a routine Renovate version bump can surface a license-policy gap that already existed in the base branch, not one the bump introduced.
 
 ```bash
 # Was the flagged package already in main's lock file at an older version?
 git show origin/main:uv.lock | grep -A2 'name = "<package>"'
 ```
 
-If the package already exists on the base branch, the bump did not introduce the problem; it exposed it. Route the fix to the workflow allowlist (`allow-dependencies-licenses` on the dependency-review step) or a documented exemption, not to a revert of the bump. Diff-scoped gates (dependency review, patch coverage) report at the changed line or package, but the root cause may be pre-existing debt in the base branch.
+If the package already exists on the base branch, the bump did not introduce the problem; it exposed it. Route the fix to the SBOM workflow's license denylist/allowlist or a documented exemption, not to a revert of the bump. Diff-scoped and full-lockfile gates alike can surface pre-existing debt in the base branch rather than something the current PR introduced.
 
 ### startup_failure with zero jobs is a caller/callee contract mismatch (Obs 266)
 

@@ -358,7 +358,15 @@ remediation: |
 **Security gate `continue-on-error` bypass (CI-SEC-002):**
 
 Read all YAML files under `.github/workflows/` using Glob, then Read each one. For any workflow step that meets **both** conditions:
-1. The step's `uses:` field references one of: `anchore/scan-action`, `aquasecurity/trivy-action`, `actions/dependency-review-action`, `ossf/scorecard-action`, `snyk/actions/python`, `snyk/actions/node`, `snyk/actions/docker`, `github/codeql-action/analyze`, `returntocorp/semgrep-action`
+1. The step's `uses:` field references one of: `anchore/scan-action`, `aquasecurity/trivy-action`, `ossf/scorecard-action`, `snyk/actions/python`, `snyk/actions/node`, `snyk/actions/docker`, `returntocorp/semgrep-action`
+
+> **`actions/dependency-review-action` and `github/codeql-action/analyze` are intentionally excluded from this allowlist.**
+> Both require paid GitHub Advanced Security (Code Security) as of the 2026-09
+> billing change and are removed fleet-wide (`dependency-review.yml` and
+> `codeql.yml` deleted); a `continue-on-error` bypass on a step that no longer
+> runs anywhere is not a finding. If a repo is found still running either
+> action, flag the workflow itself for removal (see repo-compliance CI-036/
+> CI-081, retired) rather than auditing its `continue-on-error` setting.
 2. The same step has `continue-on-error: true`
 
 > **`gitleaks/gitleaks-action` is intentionally excluded from this allowlist.**
@@ -732,8 +740,11 @@ Add at least one `fuzz_*.py` file or `@given`-decorated test per module to clear
 **Measures:** Whether static analysis tools are integrated in CI.
 **Score >= 4:** Any SAST tool (Bandit, Semgrep, CodeQL) runs in CI.
 **Score >= 7:** SAST tool with CWE coverage (Bandit covers most Python CWEs).
-**Score = 10:** CodeQL or equivalent runs on every push.
-**Note:** Bandit in `security-analysis.yml` clears 4+. For 10, add a CodeQL workflow.
+**Score = 10:** CodeQL or an equivalent CWE-scoped SAST tool runs on every push.
+**Note:** Bandit in `security-analysis.yml` clears 4+. CodeQL now requires paid
+GitHub Advanced Security (Code Security) and is no longer deployed fleet-wide
+(`codeql.yml` removed); do not recommend adding it back. Semgrep is the
+fleet's remaining path to a 10 if that score is pursued.
 
 ### SBOM (Medium)
 
