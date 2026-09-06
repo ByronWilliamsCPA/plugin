@@ -218,11 +218,15 @@ gh run view {RUN_ID} --repo "$OWNER/$REPO" --log \
 
 - Log matches an infra signature, or the conclusion is `CANCELLED` (collateral cancel):
   emit `[Critical - likely transient, rerun]` with the matched evidence line. The
-  remediation is a re-run, not a code change. A docs-only or config-only diff that
-  fails a code-analysis check (Bandit, SonarCloud, security-analysis) is a strong tell
-  for this class, since such a diff cannot cause that failure. (CodeQL was retired
-  fleet-wide 2026-09; it should no longer appear as a check at all, see ci-fix
-  guidance on legacy SARIF/code-scanning checks.)
+  remediation is a re-run, not a code change. A docs-only diff that fails a
+  code-analysis check (Bandit, SonarCloud, security-analysis) is a strong tell for
+  this class, since such a diff cannot cause that failure. A config-only diff is
+  NOT automatically in this class: it can change the analysis tool's own settings,
+  workflow inputs, dependencies, or scan paths, any of which can cause a real
+  failure; only treat a config-only diff as a tell when the changed file is
+  unrelated to the failing analysis tool's configuration or inputs. (CodeQL was
+  retired fleet-wide 2026-09; it should no longer appear as a check at all, see
+  ci-fix guidance on legacy SARIF/code-scanning checks.)
 - No infra signature and the log points at the diff: emit `[Critical - PR-introduced]`;
   the fix is in the PR's diff.
 
