@@ -367,6 +367,10 @@ Read all YAML files under `.github/workflows/` using Glob, then Read each one. F
 > runs anywhere is not a finding. If a repo is found still running either
 > action, flag the workflow itself for removal (see repo-compliance CI-036/
 > CI-081, retired) rather than auditing its `continue-on-error` setting.
+> #ASSUME: the paid-GHAS billing status applies fleet-wide regardless of a
+> given repo's visibility. #VERIFY: check that repo's actual GHAS entitlement
+> in GitHub Settings > Code security before treating a live dependency-review
+> or CodeQL step there as a non-finding.
 2. The same step has `continue-on-error: true`
 
 > **`gitleaks/gitleaks-action` is intentionally excluded from this allowlist.**

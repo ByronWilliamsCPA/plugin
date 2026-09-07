@@ -1273,7 +1273,7 @@ platform: resolve against the platform's live docs and the CI-pinned tool versio
 | CI check | Static validation |
 | --- | --- |
 | ClusterFuzzLite | For each fuzz target declared in workflow: verify file exists at the declared path, has the correct extension (`.py` for Python), and compiles with `python3 -m py_compile {target}` |
-| SARIF-producing scanners (Trivy, Snyk, Scorecard, SBOM) | If workflow references a SARIF file path, verify the generating step would produce it (check step ordering and output paths). SARIF now feeds `actions/upload-artifact`, not `github/codeql-action/upload-sarif`/Security tab ingestion, since GitHub Advanced Security is no longer free; verify the artifact-upload step exists where a scanner's SARIF was its only output. |
+| SARIF-producing scanners (Trivy, Snyk, Scorecard, SBOM) | If workflow references a SARIF file path, verify the generating step would produce it (check step ordering and output paths). Only `codeql.yml` and `dependency-review.yml` (deleted 2026-09) stopped producing SARIF; `sbom.yml`'s Grype and OSV-Scanner jobs still call `github/codeql-action/upload-sarif` to ingest into the Security tab (categories `grype-runtime-deps`, `osv-sbom-runtime-deps`), matching `.github/workflows/README.md:120-129`. Verify the `upload-sarif` step exists for those, and treat `actions/upload-artifact` as a backup copy of the raw SBOM/SARIF file, not a replacement for Security-tab ingestion. |
 | SonarCloud | Verify `sonar-project.properties` has non-placeholder values for `sonar.organization` and `sonar.projectKey` |
 | Codecov | If `codecov.yml` exists, verify it parses as valid YAML and references existing flag names |
 
@@ -1620,25 +1620,27 @@ still serves dangling commits, so use `compare`, not existence. Validate the fix
 `if:`). When the failure appeared right after an edit, confirm causation by reverting the
 suspected change on the current base before committing to a fix direction.
 
-**SARIF / code-scanning orphan checks (legacy, pre-2026-09):** GitHub's CodeQL code scanning
-and SARIF ingestion into the Security tab now require paid GitHub Advanced Security (Code
-Security); `codeql.yml` and `github/codeql-action/upload-sarif` steps were removed fleet-wide,
-so "Code scanning results / *" checks should no longer appear on new PRs at all. If one is
-still visible, it is a leftover from before the billing change, not a live analysis: treat it
-as permanently orphaned (not merely path-filtered) and, if it recurs, have the repo owner
+**SARIF / code-scanning orphan checks, CodeQL only (legacy, pre-2026-09):** `codeql.yml` and
+`dependency-review.yml` were deleted fleet-wide (2026-09; `actions/dependency-review-action` now
+requires paid GitHub Advanced Security). A "CodeQL" or "Code scanning results / CodeQL" check
+visible on a new PR is therefore a leftover from before the deletion, not a live analysis: treat
+it as permanently orphaned (not merely path-filtered) and, if it recurs, have the repo owner
 disable "Code scanning: Default setup" in repo Settings > Code security so GitHub stops
-registering the check context. The pre-2026-09 mechanics below (queued indefinitely because the
-upstream analysis job was path-filtered or skipped on config-only/docs-only PRs) still apply to
-any other SARIF-producing workflow, such as a Trivy or Snyk scan that guards a path filter.
+registering the check context. This does NOT apply to other SARIF-producing workflows: `sbom.yml`
+still runs `github/codeql-action/upload-sarif` for its Grype and OSV-Scanner jobs (categories
+`grype-runtime-deps`, `osv-sbom-runtime-deps`), so those checks are live, not orphaned. The
+pre-2026-09 mechanics below (queued indefinitely because the upstream analysis job was
+path-filtered or skipped on config-only/docs-only PRs) still apply to those and to any other
+SARIF-producing workflow, such as a Trivy or Snyk scan that guards a path filter.
 
 ```bash
 gh pr view "$PR_NUMBER" --repo "$OWNER/$REPO" --json mergeable,mergeStateStatus \
   --jq '{mergeable:.mergeable, state:.mergeStateStatus}'
 ```
 
-If `mergeable: MERGEABLE` (button is active), these orphaned SARIF checks are non-blocking
-advisory checks, not CI failures. Classify them as "advisory pending (path-filtered upstream
-job)" and do NOT trigger a re-fix cycle. The PR is safe to merge.
+If `mergeable: MERGEABLE` (button is active), a queued (not orphaned-CodeQL) SARIF check is a
+non-blocking advisory check, not a CI failure. Classify it as "advisory pending (path-filtered
+upstream job)" and do NOT trigger a re-fix cycle. The PR is safe to merge.
 
 Classify the outcome:
 
