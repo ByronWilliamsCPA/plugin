@@ -188,7 +188,7 @@ Python files changed).
 
 ### SBOM license failures may be pre-existing policy debt (was: Obs 255, dependency-review-action)
 
-`dependency-review.yml` and the `actions/dependency-review-action` gate it ran were removed fleet-wide (2026-09): the action now requires paid GitHub Advanced Security (Code Security) and no longer functions on the free tier. This diff-scoped PR-time license/vulnerability gate is gone; the fleet's remaining license-compliance control is the post-merge, full-lockfile SBOM gate (`sbom.yml`, Trivy-based).
+`dependency-review.yml` and the `actions/dependency-review-action` gate it ran were removed fleet-wide (2026-09): the action now requires paid GitHub Advanced Security (Code Security) and no longer functions on the free tier. This diff-scoped PR-time license/vulnerability gate is gone; the fleet's remaining license-compliance control is `sbom.yml` (Trivy-based). It runs on pull requests that touch `pyproject.toml` or `uv.lock` and on pushes, not only post-merge, but its caller sets `fail-on-forbidden-licenses: false`, so license enforcement is advisory, not a blocking merge gate.
 
 The same "introduced by this PR" vs. "surfaced by this PR" distinction still applies to that gate: it evaluates the full lock file on every run, so a routine Renovate version bump can surface a license-policy gap that already existed in the base branch, not one the bump introduced.
 
