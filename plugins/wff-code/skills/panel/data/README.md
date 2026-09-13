@@ -43,8 +43,9 @@ level-1 panel. Re-rate them when real benchmark numbers land.
 ## Known gap: refresh does not detect price drift
 
 `consensus_cli.py refresh` diffs model IDs only. It cannot see a live price
-change on a model that is still alive, and `input_cost` is what assigns a model
-to a cost tier band and what feeds the cost cap. The 2026-08-25 refresh found
-10 rows whose prices had drifted, one by 7.3x (`openai/o4-mini`, 0.15 -> 1.10).
-Re-check prices against `https://openrouter.ai/api/v1/models` during any
+change on a model that is still alive. `input_cost` alone assigns a model to a
+cost tier band (`models_in_cost_tier`), but the cost cap (`estimate_model_cost`)
+reads both `input_cost` and `output_cost`. The 2026-08-25 refresh found 10 rows
+whose prices had drifted, one by 7.3x (`openai/o4-mini`, 0.15 -> 1.10).
+Re-check both fields against `https://openrouter.ai/api/v1/models` during any
 refresh, not just liveness.
