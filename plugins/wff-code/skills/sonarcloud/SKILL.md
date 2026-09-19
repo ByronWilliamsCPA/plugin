@@ -20,7 +20,12 @@ Review and resolve SonarCloud issues and security hotspots for the current proje
    for the org-to-port map. If neither responds, STOP: report "SonarQube MCP
    bridge not running; start it or run this skill on the host machine." Do
    not attempt fixes without it.
-2. `SONARQUBE_TOKEN` is set.
+2. `SONARQUBE_TOKEN` is set. Check presence with a safe idiom that never
+   echoes the value: `[ -n "$SONARQUBE_TOKEN" ] && echo set || echo MISSING`,
+   or the substitute-when-set form `${SONARQUBE_TOKEN:+set}`. Never use the
+   default-when-unset form (`${SONARQUBE_TOKEN:-...}`) to test presence: its
+   set-branch echoes the actual token value into the transcript and any
+   session logs, forcing a rotation (Obs 1869).
 3. Org keys come from `sonar-project.properties` (or the other config
    sources in Step 1) in the target repo, not from this skill. If no config
    source is present, ask the user for the org key.
@@ -214,6 +219,13 @@ configuration, not skill logic: see `context/orgs.md` for the current table.
 5. Do NOT mark issues as resolved in SonarCloud — that happens automatically on next analysis
 6. Do NOT use `change_sonar_issue_status` unless the user explicitly asks to suppress/accept
 
+**Post-remediation reconciliation must query live state, not infer (Obs 1516):** After a
+merge meant to close tracked SonarCloud issues, diff the LIVE open issue-key set against
+the tracked register in both directions: register minus live = what actually cleared
+(including side-effect fixes the plan didn't call out), live minus register = what the
+change introduced. Never derive either number from the count of fixes applied; counting
+deliberately-fixed rows undercounts what actually cleared.
+
 **GitHub Actions workflow files are Edit/Write-blocked (obs 48, 115).** A security
 PreToolUse hook blocks the Edit and Write tools on `.github/workflows/*.yml`. When
 fixing workflow-file issues (e.g. S7630 script-injection BLOCKERs), the Edit tool
@@ -243,6 +255,22 @@ specific rule; it lives here because workflow-file remediation is where it bites
   one fix at the boundary, not N fixes at the sinks; fixing at each sink scatters
   duplicate checks and can leave the taint unbroken if the sanitizer is not recognized
   on the flow path.
+- Before classifying any issue as false-positive/by-design/accept, fetch the rule's
+  full description (not the title or short message) and reproduce with the snippet
+  analyzer on a minimal before/after pair; only if the "after" still flags may the
+  accept path proceed. Treat any snippet-analyzer "clean" result as inconclusive
+  unless it was first shown to flag the KNOWN-BAD original -- a checker that clears
+  every input is indistinguishable from a broken one. (Obs 1512, 1515, 1591)
+- Before any bulk fix touching more than roughly five instances of one rule key,
+  express the rule as a mechanical checker and require it to reproduce the KNOWN
+  issue-key list exactly (same count, same files) before editing anything. (Obs 1591)
+- Before applying any rule's canned suggested fix, enumerate the flagged symbol's
+  callers and check what they actually consume; the canned remedy is calibrated to
+  the rule's typical case, not your call graph (e.g. padding a tuple with a null
+  placeholder can inject a null into a typed audit trail). (Obs 1200)
+- Before triaging line numbers from an analysis that looks stale, fetch the
+  analyzed revision metadata and sync local HEAD to it; do not act on "roughly up
+  to date." (Obs 1201)
 
 #### Mode: Gate (`gate`)
 
@@ -251,6 +279,14 @@ specific rule; it lives here because workflow-file remediation is where it bites
    `code_smells`, `coverage`, `duplicated_lines_density`, `security_hotspots`,
    `reliability_rating`, `security_rating`, `sqale_rating`
 3. Present detailed quality gate breakdown with measures
+
+**Attribute a failing condition to its actual driving issues (Obs 1208):** When the
+quality-gate status reports a failing CONDITION, enumerate the actual issues driving
+it by filtering search results on the matching impact-software-quality dimension, and
+confirm the count matches before fixing. Never infer the driving issues from the
+rating value alone; a rule's software-quality classification is often not what its
+name suggests (a red reliability rating can be driven by unrelated issues scored
+under a different software quality than the one already delegated).
 
 #### Mode: Rule (`rule <key>`)
 
@@ -547,6 +583,20 @@ Both MCP servers expose these tools (use the appropriate prefix):
   for manual local scans. Reads `sonar-project.properties` from project root.
 - **check_quality_gate.py**: Some projects have `scripts/check_quality_gate.py`
   that queries the SonarCloud API directly with LLM governance tag mapping.
+- **Snyk `.snyk` ignore rules do not suppress Snyk Code (Obs 759, 761):** A `.snyk`
+  ignore rule suppresses only Snyk Open Source (SCA) findings; Snyk Code (SAST)
+  findings cannot be ignored in-repo at all, only excluded by file path (which hides
+  the whole file from future scans) or accepted platform-side (UI / consistent
+  ignores). For Snyk Code path-traversal findings, resolving a path alone is not a
+  recognized sanitizer; only resolve-then-reject containment (resolve, then check
+  containment against an allowed root, then raise) clears the finding, and that
+  containment can break legitimate reads (including tests using temp-dir paths) --
+  weigh that against accepting the finding as a false positive.
+- **SonarQube Cloud consolidated its resolution actions (Obs 1210):** The former
+  separate false-positive/won't-fix buttons are now a single "Accept" action; stop
+  instructing users to look for the old separate buttons in the UI. The status-change
+  tool takes no comment parameter, so any rationale belongs in the code/PR, not a
+  Sonar annotation.
 
 ## Org-Specific Details
 

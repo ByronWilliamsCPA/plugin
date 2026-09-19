@@ -261,6 +261,22 @@ Symptoms that signal a shared-tree race:
 Isolation (a worktree per actor) is a precondition for safe parallel commits, not an
 optimization.
 
+A force-push from any worktree updates the SAME remote-tracking refs shared by every
+worktree in this clone (they share one object store). Before a force-push from a worktree,
+fetch that specific branch immediately beforehand so `--force-with-lease` reflects current
+remote state; see git skill HR-9 (a stale lease from fetching only the base branch, not the
+branch being pushed, is what destroyed a concurrent session's commits on PR #288,
+2026-08-03). If another session may currently hold the branch, do not force-push at all.
+
+## Re-inventory immediately before each destructive item in a batch (Obs 1243/1455)
+
+In a shared or concurrently-modified repo, an inventory (worktree list, branch list) taken
+once at the start of a destructive batch (branch or worktree deletion) goes stale between
+being printed and being acted on. Re-run the inventory command immediately before each
+individual removal, not only once up front. Treat a "not found" error mid-batch as evidence
+of state drift requiring a fresh re-inventory, never as a reason to `--force` through the
+removal.
+
 ## Worktree-aware reversible dedup of duplicate clones (Obs 175)
 
 Local clone "duplicates" (a hyphen and an underscore copy of the same project) are rarely
@@ -305,6 +321,13 @@ deleted branches show upstream `[gone]` and their commits are not on origin/main
 
 ## Common Mistakes
 
+### `.git` is a file, not a directory, in a linked worktree
+
+A linked worktree's `.git` is a FILE (a gitdir pointer), not a directory, so any
+git-state check that does `test -d .git/rebase-merge` or similar silently fails
+in a worktree even when the state exists. Use `git rev-parse --git-path <name>`
+to resolve the real path first, then test that.
+
 ### Skipping ignore verification
 
 - **Problem:** Worktree contents get tracked, pollute git status
@@ -336,6 +359,7 @@ deleted branches show upstream `[gone]` and their commits are not on origin/main
 |---------|---------|-----|
 | Inheriting parent VIRTUAL_ENV | uv targets the parent worktree's venv, installing into the wrong environment | `unset VIRTUAL_ENV` before `uv sync` in a new worktree |
 | Missing dev extras | `uv sync` installs only runtime deps; `uv run pytest` fails with ModuleNotFoundError | Always run `uv sync --extra dev` or `--all-extras` for worktrees used for testing |
+| `pre-commit run --all-files` fails in a fresh worktree | Looks like broken hooks but is often environmental (an untracked/worktree-local dependency dir) | Check whether the missing dependency is untracked/worktree-local and whether the failing hook's `files:` regex even matches the diff before concluding hooks are broken; fall back to staged-mode `pre-commit run` (the gate that actually runs at commit time) to confirm |
 
 ## Example Workflow
 

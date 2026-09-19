@@ -1,15 +1,17 @@
 ---
 name: receiving-code-review-extras
-description: Local delta on top of the vendored receiving-code-review skill. Adds code-as-arbiter adjudication when a review and a status board (or two reviews) conflict, and constraint-first remedy re-derivation when a finding's implied fix would violate a standing user constraint. Use alongside receiving-code-review when a review contradicts the status record, when two reviews disagree on a checkable claim, or when turning red-team/audit findings into a plan under a hard user rule. Triggers on: conflicting reviews, review vs status board, red-team findings to plan, finding implies forbidden fix, standing constraint, no re-run allowed.
+description: Local delta on top of the vendored receiving-code-review skill. Adds code-as-arbiter adjudication when a review and a status board (or two reviews) conflict, org control-plane and manifest scope checks for shared/org-level findings, and constraint-first remedy re-derivation when a finding's implied fix would violate a standing user constraint. Use alongside receiving-code-review when a review contradicts the status record, when two reviews disagree on a checkable claim, when a finding targets a shared or org-level artifact, or when turning red-team/audit findings into a plan under a hard user rule. Triggers on: conflicting reviews, review vs status board, red-team findings to plan, finding implies forbidden fix, standing constraint, no re-run allowed, shared artifact finding, org ruleset.
 ---
 
 # receiving-code-review-extras
 
-Extends the vendored `receiving-code-review` skill (read-only, in `.submodules`). Contains only the delta: how to adjudicate conflicting findings, and how to convert findings into action without letting them smuggle in forbidden work.
+Extends the vendored `receiving-code-review` skill (read-only, in `.submodules`). Contains only the delta: how to adjudicate conflicting findings, how to scope a shared/org-level finding before adopting its remedy, and how to convert findings into action without letting them smuggle in forbidden work.
 
 ## On a checkable claim, the code is the arbiter
 
 Reviews and status boards are both secondary sources and both drift from the code. When a review and a status record disagree (or two reviews disagree) on a factual, checkable claim, read the cited code/artifact and adjudicate from ground truth, not from whichever source is more recent or more authoritative-sounding. A methodology review said one gate was still broken (already fixed) and an engine value was path-invariant (genuinely broken); only reading the live code separated the stale finding from the real one. "Greener than the code" and "scarier than the code" are symmetric failure modes. Capture the split verdict explicitly: list which findings are real and which are stale, so downstream work targets only the real ones.
+
+The same principle extends to a finding that targets a shared or org-level artifact (a floating tag, a Renovate preset, a reusable workflow contract, a manifest-mandated check): the repo under review is not the whole picture, so verify two things before adopting the review's remediation. First, confirm the org control plane (branch/tag rulesets, protection rules) actually permits each proposed option; a Critical finding's recommended fix (re-point a floating major tag) was blocked by an org-wide tag ruleset invisible from the repo under review. Second, confirm whether a standards manifest or template mandates the flagged pattern; the "broken" pattern one finding flagged was itself mandated fleet-wide by a standards-manifest check and already replicated into consumer repos and a cookiecutter template, neither fact visible from the repo the finding was filed against, so the fix has to propagate beyond that repo rather than land as a local patch.
 
 ## A finding names a problem; it does not get to choose the remedy
 

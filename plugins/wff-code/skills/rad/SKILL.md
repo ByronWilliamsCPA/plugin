@@ -110,6 +110,18 @@ Tag assumptions during development to enable systematic verification:
 // Example: Browser compatibility, slow networks
 ```
 
+**A `#VERIFY` must target the exact claim, not something adjacent to it.** State the
+quantifier the assumption needs (exists / for-all / at-least-N) and match the
+`#VERIFY` to it: an existence check ("some response was captured") never satisfies a
+universal risk ("no response ever leaks a key"). When a comment justifies a specific
+boundary, comparison operator, or ordering ("strict on purpose because X"), the paired
+`#VERIFY` must cite a test at that exact boundary, not one covering the surrounding
+behavior. When a marker reads "assertion, because rationale," the `#VERIFY` targets
+the assertion, not the rationale clause; unverifiable rationale is a reason to keep it
+as a plain comment, never a reason to drop the `#VERIFY` on the assertion itself.
+Self-check before writing any `#VERIFY`: "if this control passes and the assumption is
+violated, is that possible?" If yes, it is not the verification.
+
 ### Critical Assumption Categories (Mandatory Tagging)
 
 - **Timing Dependencies**: State updates, async operations, race conditions
@@ -119,6 +131,13 @@ Tag assumptions during development to enable systematic verification:
 - **Security**: Authentication, authorization, input validation
 - **Payment/Financial**: Transaction integrity, retry logic, rollback handling
 
+**Unreachability claims need a test that reaches the branch, not one that assumes
+it.** A `#CRITICAL` asserting a branch "cannot be reached" must pair with a
+`#VERIFY` naming a test that actually drives the real collaborator to attempt
+reaching it, not a test (or mock) authored under the same belief the claim rests on.
+Treat "I cannot construct an input that triggers this" as an untested hypothesis
+requiring a falsification attempt, not a settled fact.
+
 ### Verification Workflow
 
 1. **Tag Assumptions**: Claude tags during development, or manual tagging during review
@@ -127,6 +146,14 @@ Tag assumptions during development to enable systematic verification:
 4. **Analysis**: Fresh context prevents confirmation bias in verification
 5. **Fix Generation**: Defensive code patterns generated automatically
 6. **Review & Apply**: Developer reviews and applies fixes selectively
+
+**Deferred `#VERIFY`s need a tracking mechanism, not prose.** Distinguish a
+`#VERIFY` satisfiable by an assertion in the same change (checkable statically) from
+one naming a deferred action in a future run or another repo area. The deferred kind
+must cite a tracking id (an issue or register row) at write time, and is not closed
+until that id closes; prose alone ("confirm on the first nightly run") creates
+standing assumption debt with nothing forcing the observation to happen, especially
+on non-required or advisory workflows where failure is invisible.
 
 ## Integration with Other Skills
 

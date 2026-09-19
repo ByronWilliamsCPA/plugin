@@ -35,6 +35,17 @@ rather than imposing a visual motif:
 Keep the skill's existing "avoid accent lines under titles" rule, which already
 aligns with restrained house styles.
 
+### Visual QA fallback ladder when LibreOffice is unavailable (Obs 594)
+
+Slide-render visual QA normally depends on LibreOffice to rasterize slides for
+review. When LibreOffice is not installed or not invokable in the environment,
+fall back in order rather than skipping visual QA silently: (1) an available
+alternate renderer capable of PPTX-to-image conversion, (2) inspecting the
+raw XML/shape tree for the specific properties being checked (font size,
+color values, layout bounds) as a text-only proxy for the visual property, (3)
+if neither is available, report visual QA as unverified rather than as
+passed.
+
 A presentation that must belong to a specific institutional context succeeds by
 matching that context's restraint, not by maximizing visual interest. When the
 brief states a house style, the house style wins over the generic

@@ -191,6 +191,75 @@ fixed 3 of 4 stale pins), add the remaining fix as a commit to THAT branch. Only
 standalone PR when no in-flight branch covers it. Fix-routing is a function of what is in
 flight, not just what is on main.
 
+### HR-7: In a shared working tree, pass `-C` explicitly and re-verify ref state immediately before the state-changing command
+
+A `cd` in one tool call does not reliably carry to the next, and another session sharing
+the same working tree can move HEAD, the current branch, or the index between your
+commands. Two defenses, applied at the moment of the state-changing command, not earlier:
+
+- Pass `-C <absolute-worktree-path>` (or `cd "<path>" &&` on the same command line) on
+  every state-changing git command rather than relying on inherited cwd.
+- Immediately before `git commit`, re-read `git branch --show-current` and
+  `git rev-parse HEAD` fresh; do not trust a value captured earlier in the session.
+
+Two techniques exist for a tree checked out at `<mode>,<sha>,<path>` or a branch
+checked out elsewhere, but both mutate shared state and are safe only inside an
+isolated worktree (`.worktrees/<slug>`), never in a shared checkout with concurrent
+sessions: `git update-index --cacheinfo <mode>,<sha>,<path>` writes directly into
+the shared index, so running it against the main checkout can stage or clobber
+another session's pending changes; `git switch --detach` (no argument) rewrites
+`HEAD` for whichever tree it runs in, so running it in a shared checkout moves
+another session's branch out from under it. Confirm you are inside your own
+worktree (`git rev-parse --show-toplevel` matches your worktree path) before
+using either command.
+
+### HR-8: Verify the intended base explicitly before `git checkout -b`, never inherit the ambient checkout (Obs 666/1045/1108/1129/1732/1891)
+
+`git checkout -b <new-branch>` branches from whatever is currently checked out, not
+necessarily the intended base. Before creating a branch: confirm the actual intended base
+(not just "is it main"), fetch and confirm `origin/<base>` and local `<base>` agree
+(`git rev-list --left-right --count origin/<base>...<base>` should read `0 0`), and branch
+from `origin/<base>` explicitly in the same step:
+
+```bash
+git fetch origin <base>
+git checkout -b <new-branch> origin/<base>
+```
+
+Pair this with a pre-flight check for an open PR or remote branch already touching the
+same files/topic before investing in a full branch.
+
+### HR-9: Force-push safety is a precondition on the ref, not a remembered step (Obs 1160/1389/1392/1445)
+
+Before any force-push, run `git range-diff` (not a two-head tree diff, which conflates
+rebased content with newly-inherited base commits) to confirm the rebase is correct, and
+require `git merge-base --is-ancestor origin/<branch> HEAD` (or an up-to-date
+`--force-with-lease`) as a hard precondition baked into the push idiom itself.
+
+`--force-with-lease` only protects when the local tracking ref for THAT EXACT branch was
+fetched recently: fetching only the base branch does not refresh it. A confirmed incident
+in this repo (PR #288, 2026-08-03) is one where the lease FAILED to protect for exactly
+this reason: only `main` had been fetched, so a concurrent session's commits on the branch
+were destroyed. `git fetch origin <branch>` immediately before the push, every time. If
+another session may currently hold the branch, the correct action is not to force-push at
+all: coordinate first, or push to a new branch.
+
+Before any push (force or not), re-verify the target ref/PR still exists and is still the
+head; a long delegated task's target can merge underneath it. When a force-push is blocked
+by a hook with an opaque or missing error, surface exactly what was attempted and why, and
+ask the user to choose among force-push / a non-force alternative / doing it themselves,
+rather than silently retrying or assuming the answer is no.
+
+### HR-10: Commit-gating-behind-explicit-request is a harness default, not a user rule (Obs 792)
+
+The harness's default of gating commits behind an explicit request is the lowest-priority
+instruction and is commonly overridden by project CLAUDE.md (e.g., "commit autonomously at
+logical checkpoints, gate only push/PR behind approval"). Never cite "your rule" as the
+reason to withhold a commit without first confirming the rule actually exists in the
+user's CLAUDE.md or `.claude/rules/`. When tempted to skip a hook because "it would have
+passed anyway," run it and let it pass; that reasoning is not a permitted override (see
+also HR-5's never-bypass clause).
+
 ## Common Hazards
 
 Real-world failure patterns collected from production sessions.
@@ -213,6 +282,36 @@ pre-commit hooks installed:
 
 Also: before committing a large changeset, run `git diff -w` to separate real content from
 whitespace/line-ending churn (a "150-file WIP" is often ~87% churn) and discard the churn.
+
+### Format before you stage, not only via the commit hook (Obs 576/1168/1404)
+
+Running an auto-fixing formatter (e.g. `ruff format`) only via the pre-commit hook risks
+the hook's stash/restore reverting unrelated unstaged edits when the fixer rewrites a
+staged file mid-run. Run the project's formatters and re-stage BEFORE `git commit`, so
+format-only hooks have nothing left to change. After any commit where pre-commit's
+stash/restore ran in a shared working tree, run `git status --short` to confirm nothing
+unrelated got restored as staged.
+
+`pre-commit run --all-files` failing in a freshly created worktree is often environmental,
+not a real failure: check first whether the missing dependency is untracked/worktree-local
+and whether the failing hook's `files:` regex even matches the diff, before concluding the
+hooks are broken. Fall back to the staged-mode `pre-commit run` (the gate that actually
+runs at commit time) to confirm.
+
+### Lockfile conflicts: regenerate, never hand-resolve or bulk `--ours`/`--theirs` (Obs 520/747)
+
+A generated lockfile (`uv.lock`, `package-lock.json`, `Cargo.lock`) in conflict is not
+source text to hand-edit. Bulk `--ours`/`--theirs` takes a whole stale snapshot and can
+silently revert a newer security bump merged on the other side. Resolve the manifest
+(`pyproject.toml`, `package.json`) instead, delete the conflicted lockfile, and regenerate
+it with the project's exact lock command (e.g. `uv lock`). Never run the lock command
+against a conflict-marked lockfile still on disk; delete it first.
+
+### `git diff --check` before every `rebase --continue` (Obs 960)
+
+Pre-commit hooks do not guard a `git rebase --continue` commit the way they guard a normal
+commit; a leftover conflict marker can land on a rebased commit unnoticed. Run
+`git diff --check` after staging a conflict resolution and before `git rebase --continue`.
 
 ### Content-purity hooks fire on quoted text and on the rule's own example (Obs 491)
 
@@ -291,3 +390,11 @@ inspection of the secrets entries is needed unless the conflict extends beyond t
 ```bash
 git add .secrets.baseline
 ```
+
+Separately, regenerating the whole baseline via a full `detect-secrets scan --baseline
+.secrets.baseline` re-scans everything and can silently drop entries for paths the scan no
+longer reaches (a submodule symlink, a newly-excluded path), un-allowlisting previously-
+audited secrets (Obs 824). To allowlist one new false positive, prefer a surgical edit
+(append the single result object) over a full regeneration. If a full regen is
+unavoidable, always `git diff .secrets.baseline` afterward and confirm the only change is
+the intended addition, watching specifically for dropped result blocks.

@@ -34,6 +34,14 @@ Run a four-category documentation health audit and produce a persistent report.
 5. Write `docs/audit-report.md` (overwrite if it exists)
 6. Print the completion message
 
+After any semantic consistency edit feeding into this audit (a prose pass that fixes
+stale facts), run a deterministic grep for the specific stale tokens being retired
+(old state names, removed field names, retired vocabulary) across the whole doc set,
+and treat surviving hits as findings unless they are corrective ("there is no X") or
+meta ("X was retired") text (Obs 874). Semantic review and literal token-search are
+complementary: prose review reads past the same stale facts duplicated in fenced code
+blocks, tables, and lists.
+
 ## Terminal Summary Table
 
 Print this table after parsing the JSON:
@@ -119,6 +127,29 @@ gh run list --workflow=docs.yml --branch main --limit 1
 If the build fails on clean main, surface it as an ERROR-level finding ("docs build broken on
 main, independent of any open PR") so the inherited regression is fixed at the source rather
 than discovered by the next contributor.
+
+## Correction Propagation (Obs 1397)
+
+Correcting a finding at its definition site does not correct the places that cite it.
+Add a fifth staleness category: after any finding, gate, risk, or work-unit is
+corrected or resolved in a cross-referenced document, grep the whole document set for
+its ID and flag every citation site that was not updated, not just the definition
+site. Also assert that a document's version header agrees with its own change log;
+report a mismatch as an ERROR, since the header is the field readers trust.
+
+## Time-Inverted Claims (Obs 1637, 1703)
+
+A document that was true when written can silently invert to false once the world
+changes; this is distinct from falling behind (stale versions, broken links). For
+planning, decision, or engagement docs, search for phrases like "we rejected," "we
+chose not to," "out of scope," or "considered and dismissed" plus the option's noun
+phrase, and check whether the tree now contains evidence that option exists (a
+module, dependency, config key, ADR, vendor name); report a hit as high severity,
+since a document stating the opposite of reality is worse than one that omits it.
+For runbook or detection snippets embedded in docs, flag any command that hardcodes
+an incident-specific literal (a version, tag, or ID) instead of deriving it at
+runtime: ask "what does this command print once the incident is resolved?" If the
+answer looks healthy, it is a future false negative.
 
 ## Completion Messages
 

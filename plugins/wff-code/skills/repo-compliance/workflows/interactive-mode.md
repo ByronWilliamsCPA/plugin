@@ -15,6 +15,19 @@ git status  # confirm it is a git repo
 
 Read `~/.claude/docs/standards-manifest.yaml`. Note its `last_updated` value as MANIFEST_VERSION.
 Read `$TARGET_REPO/.claude/compliance-overrides.md` if it exists; extract the Check ID column.
+Before remediating, also load any `compliance-overrides.md`-adjacent "do not change yet"
+project-memory notes and pass them to the relevant domain agents; a finding that contradicts a
+documented prior decision must be surfaced for confirmation, not auto-applied.
+
+**Org identity: derive from git remote, never from docs.** Run `git remote get-url origin` to
+derive the org for org-scoped checks. If it returns nothing (no remote configured), do NOT
+fall back to CLAUDE.md's or any doc's stated repo URL for org identity. Mark every org-scoped
+check (CI-003b, CI-001/002 org-reusable references, OSSF) as
+`UNKNOWN: no remote, org assumed from docs` rather than evaluating or passing them; a
+docs-derived org can silently differ from the real remote and invert a critical FAIL to PASS.
+
+**Record a mutation baseline.** Run `git rev-parse HEAD` and `git status --porcelain` and
+record them as AUDIT_BASE_SHA / AUDIT_BASE_DIRTY before dispatching any agent.
 
 **Load pre-fetched catalog data (if available):**
 Read `~/.claude/docs/reference/github-repos.json` if it exists. Derive the repo slug from the target repo's `git remote get-url origin` output (format: `org/repo-name`). Find the matching entry in `repos[]` by `org` + `name`. If found, extract the `review` object. Attach it to each domain agent's prompt under the key `cachedReview` so the agent can skip redundant GitHub API calls. Include the catalog `_meta.lastUpdated` date; if it is older than 30 days, flag cached data as potentially stale.
@@ -31,7 +44,7 @@ If no entry exists, or `manifest_version` differs, or `--force` was passed:
 
 ### 2. Parallel Audit Dispatch
 
-Use TodoWrite to track agent dispatch. Dispatch all domain agents in parallel using the Agent tool. Pass each agent the coordinator prompt template from SKILL.md populated with:
+Use TodoWrite to track agent dispatch. Dispatch all domain agents in parallel using the Agent tool. In audit mode, include in every coordinator prompt: "Do not run any git command that mutates state: no merge, pull, fetch --prune, checkout, stash, add, commit, or push. Read-only inspection only." Pass each agent the coordinator prompt template from SKILL.md populated with:
 - Mode: audit
 - Target repo: resolved absolute path
 - Manifest checks: the subset for that domain (domain-relevant entries only, not the full manifest)
@@ -67,6 +80,12 @@ Agents to dispatch simultaneously (skip any whose domain is in SKIP_DOMAINS):
 > Note: REPO-* checks carry `domain: repo_settings` in the manifest but are produced by `repo-foundations-auditor`, which is dispatched under `domain: foundations`. A `SKIP_DOMAINS` entry of either `foundations` or `repo_settings` therefore skips the REPO-* checks, and any retrospective grouping should treat `repo_settings` findings as belonging to the foundations agent.
 
 ### 3. Merge and Present Findings
+
+Before presenting anything, re-read `git rev-parse HEAD` and `git status --porcelain` and
+compare against AUDIT_BASE_SHA / AUDIT_BASE_DIRTY from Step 1. Report any HEAD movement (old
+SHA, new SHA, changed files) to the user before findings are shown; a read-only audit dispatch
+must not leave the working tree changed, and any citation gathered before an unexpected HEAD
+move needs re-verification.
 
 Collect all FINDING blocks. Filter out any finding whose ID is in the override list. Sort by severity: Critical first, then Important, then Suggested. Present unclassified candidates in a separate section.
 
@@ -134,6 +153,11 @@ Dispatch agents by domain in dependency order:
 Collect ACTION lines from each agent and present a summary of all changes made.
 
 ### 6. Open PR
+
+Before committing, `git fetch` and diff the intended changes against `origin/<branch>`. If the
+fix already landed via another channel (a merged dependency PR, a concurrent session), rescope
+rather than duplicate it; pushing a fix already present rejects as non-fast-forward and wastes
+the remediation run.
 
 ```bash
 cd "$TARGET_REPO"

@@ -37,19 +37,39 @@ suggestion brief — one or two sentences, not a full tutorial.
 ## Compaction Behaviour
 
 When a session context compacts mid-task, the CLAUDE.md structural trigger
-re-invokes task-observer on the resumed session. No explicit re-invocation
-is needed on the agent's part — the same activation instruction that fired
-at the start of the original session fires again at the start of the
-resumed session, because the resumed session reads CLAUDE.md anew.
-Observations from before and after compaction append to the same log file
-with continuous numbering.
+is *intended* to re-invoke task-observer on the resumed session, on the
+theory that the same activation instruction fires again because the
+resumed session reads CLAUDE.md anew. **In practice this is not reliable.**
+Multiple sessions, including two consecutive same-mechanism failures logged
+within a single session, show logging staying dark across an entire
+post-compaction stretch, sometimes for hours and dozens of tool calls,
+only reconstructed retroactively at `/close`. Treat compaction as a
+session-start event, not a continuation: on the first turn after a
+compaction, re-read the log, re-establish the Stop-hook baseline from the
+current count (a missing or stale baseline should be treated as "unknown,
+assume unflushed," not skipped), and write one observation covering the
+pre-compaction stretch before continuing the task. Observations from
+before and after compaction still append to the same log file with
+continuous numbering; only the automatic re-trigger is unreliable, not the
+log's continuity.
 
-This is the primary reason the CLAUDE.md structural trigger exists —
+This is still the primary reason the CLAUDE.md structural trigger exists:
 description-level triggers alone would not reliably guarantee re-invocation
 on a resumed session, because the resumed session's opening message may
 not match task-observer's trigger phrases even when the ongoing task is
-task-oriented. The structural trigger fires regardless of the resumed
-session's opening message.
+task-oriented. The structural trigger's presence reduces the risk; it does
+not eliminate the need to verify logging resumed.
+
+**Carried context needs re-verification before it is acted on.** A detail
+that survives a summary, a subagent report, or the compaction itself has
+been through a lossy channel and is not itself evidence about the
+repository or the task state. One session was about to publish a
+correction to a PR body based on a remembered detail from earlier context
+("a fix agent shortened four contracts' pinned fields"); a direct diff
+check showed the diff had never touched that field at all. Before acting
+on any specific carried claim, especially when acting means publishing a
+correction or a public statement: re-derive it from the primary source,
+the diff, the file, the API response.
 
 ---
 
@@ -78,9 +98,13 @@ systematically from both explicit and implicit sources:
 
 ## Archival on Write
 
-The observation log is kept lean through event-driven archival that runs on
-every log write, rather than accumulating resolved entries until a periodic
-review clears them out.
+The observation log is kept lean through archival that runs at the start of
+each comprehensive review (Step 1), not on every log write. A normal task
+session that only appends observations never triggers archival, so the
+active log grows unbounded between reviews; one active log reached 1.3 MB
+and 461 resolved entries before a review finally cleared it. This is
+expected; it is why review cadence (see Comprehensive Review below, and the
+backlog-size trigger in the Session Start Protocol) matters.
 
 **Defining "from a previous update":**
 The phrase "from a previous update" means entries whose status was already
@@ -246,6 +270,16 @@ When a task session produces a skill update (through weekly review, direct impro
 4. Use `present_files` to show it to the user for review
 5. The user uploads the file to install it
 
+**Path pinning:** In Claude Code, `[workspace folder]/skill-updates/[today]/[skill-name]/`
+resolves to the absolute `~/.claude/skill-observations/skill-updates/YYYY-MM-DD/[skill-name]/`,
+not a path relative to the current project. This is deliberate: a
+project-relative path would land inside a git working tree that concurrent
+sessions push commits into and merge PRs from, and a staged skill draft has
+no business being tracked there. Record the baseline hash of each source
+file (e.g. `sha256sum`) alongside the staged copy: a stale baseline (the
+live file changed after you read it but before you staged your edit) is
+otherwise undetectable at install time.
+
 This keeps the mount clean, stages updates for review, and gives you a clear separation between read-only source and working copy.
 
 **Cross-environment note:** Claude Code now shares the same skills as Cowork via the anthropic-skills capability. The "always start from the live file" rule applies in both environments. In Claude Code, the live file is surfaced by the capabilities system; in Cowork, it's the read-only mount at `.claude/skills/{skill}/SKILL.md`. The diff-before-overwrite requirement applies regardless of which environment produced the update.
@@ -354,6 +388,12 @@ following are true:
   `[workspace folder]/skill-observations/last-review-date.txt` is also
   more than 7 days old (or missing).
 
+Independently of that date check, a backlog-size trigger also applies (see
+Session Start Protocol step 3): a review that only checks the clock can sit
+silently on a backlog of well over a thousand open observations, so an OPEN
+count past roughly 150, or a cluster of 5+ observations sharing a skill or
+failure keyword, surfaces the review as overdue on its own.
+
 When the fallback fires, inform the user that the comprehensive review is
 running and walk through Step 0 (recommend scheduling) before Step 1.
 
@@ -388,6 +428,11 @@ break because nothing is live until the user approves upload.
 4. **Conflicting observations.** Two observations that point in opposite
    directions, or where the integration path isn't obvious, should be
    surfaced rather than resolved autonomously.
+5. **A recurrence of an already-documented rule.** If the target skill's
+   text already covers the observation's fix correctly and the observation
+   is reporting a recurrence anyway, do not apply a prose edit; reclassify
+   it as an ENFORCEMENT-GAP and report it for a mechanical-gate decision
+   instead (see Disposition under Step 3).
 
 Scheduled runs that escalate should still apply every non-escalated
 observation before producing the report. A scheduled review that
@@ -411,9 +456,15 @@ respect prior declines.
 2. Check whether a scheduled review task is registered. The signal is
    either a presence check via the platform's scheduling tool (preferred)
    or the existence of
-   `[workspace folder]/skill-observations/scheduler-registered.txt`. If a
-   registered scheduled review is found, no recommendation needed — skip
-   to Step 1.
+   `[workspace folder]/skill-observations/scheduler-registered.txt`. **Do
+   not trust the marker's mere presence as proof the review is running:**
+   cross-check its age against `last-review-date.txt`. A marker can persist
+   for weeks after the scheduled job silently stops firing (an 11-day
+   overdue gap was observed with the marker still present); if the gap
+   between the marker's age and the actual review cadence is wide, surface
+   "scheduled review appears registered but dormant" instead of staying
+   silent. If the cross-check confirms the scheduled review is actually
+   running, no recommendation needed; skip to Step 1.
 
 3. If no scheduled review is registered AND no recent decline marker
    exists (or the marker is stale because the fallback keeps firing),
@@ -442,6 +493,20 @@ respect prior declines.
 4. If no scheduling capability is available in the current environment,
    skip the recommendation silently and proceed to Step 1. Do not surface
    the recommendation in environments where the user couldn't act on it.
+
+5. **Audit runtime-writing scripts for path drift.** Any script under
+   `scripts/` that writes a shared task-observer runtime file (`log.md`,
+   `available-skills.md`, `cross-cutting-principles.md`, and similar) must
+   resolve paths via `${HOME}/.claude/skill-observations`, never a path
+   derived from the script's own location: `generate-skills-manifest.sh`
+   drifted this way and wrote a stale duplicate tree. Any find-and-replace
+   step in an install or patch script should assert a nonzero match count
+   and fail loudly otherwise: `apply-task-observer-patches.sh`'s Patch 1
+   was silently a no-op for its entire life because it targeted a
+   placeholder string that never matched upstream's actual placeholder,
+   leaving the real placeholder unsubstituted throughout the installed
+   SKILL.md. (Fixing the patch script itself is separate work, outside
+   these four skill files.)
 
 The 30-day suppression isn't permanent. If the in-session fallback keeps
 firing within the suppression window — a signal that the recurring need
@@ -486,9 +551,37 @@ contain general principles that apply more broadly than the original context
 suggested. Consider both the specific "Suggested improvement" and the general
 "Principle" fields. Build a mapping of skill → [relevant observations].
 
-**If the review is interactive (user present):** Present ALL observations to the user in a single message, grouped by skill. For each observation, show the number, title, and a one-sentence summary. Flag any observations that are ambiguous, risky, or require a judgment call as 'Needs your input'. All other observations are treated as straightforward and can be applied without individual discussion.
+**If the review is interactive (user present):** The presentation format
+depends on scale.
 
-**If the review is scheduled autonomous (user not present):** Skip the user-facing present step. Apply the approval policy from "Interactive vs Scheduled Runs" above: apply every non-escalated observation and record the escalated ones (new-skill candidates, removal/restructuring, self-flagged uncertainty, conflicting observations) in the review report without applying them. Proceed directly to Step 4.
+- **Under roughly 50 OPEN observations:** Present ALL of them to the user in
+  a single message, grouped by skill. For each observation, show the
+  number, title, and a one-sentence summary. Flag any observations that are
+  ambiguous, risky, or require a judgment call as 'Needs your input'. All
+  other observations are treated as straightforward and can be applied
+  without individual discussion.
+- **Above roughly 50 OPEN observations:** Presenting every entry
+  individually is unworkable: one review faced 1,341 OPEN observations
+  totalling roughly 410,000 words. Run a synthesis-first pass instead:
+  partition the OPEN observations by target skill into word-budgeted
+  slices, dispatch one subagent per slice to cluster its observations into
+  themes and check each theme against the current skill text for existing
+  coverage (see Disposition below), then present the consolidated themes,
+  not the raw observations, for approval, grouped by skill.
+
+**Disposition: Already-Covered vs Enforcement Gap.** When a theme's
+proposed fix is checked against the current skill text and found already
+present, do not simply close it as ALREADY-COVERED. First ask whether the
+observation is reporting a *recurrence* of that already-documented rule. If
+it is, the recurrence is evidence that prose was not the binding
+constraint; reclassify the theme as ENFORCEMENT-GAP and design a
+mechanical gate (a hook, a validator, a CI check, a post-write assertion)
+rather than applying a text edit that will not change behaviour. Reserve
+ALREADY-COVERED for a genuine one-off match with no recurrence pattern.
+These are different outcomes and must not be merged (cross-cutting
+principle #3, cross-cutting-principles.md).
+
+**If the review is scheduled autonomous (user not present):** Skip the user-facing present step. Apply the approval policy from "Interactive vs Scheduled Runs" above: apply every non-escalated observation and record the escalated ones (new-skill candidates, removal/restructuring, self-flagged uncertainty, conflicting observations, recurrence-driven enforcement gaps) in the review report without applying them. Proceed directly to Step 4.
 
 **Step 4 — Cross-check cross-cutting principles against every skill**
 
@@ -573,6 +666,9 @@ copying needed.
    ```
    [workspace folder]/skill-updates/[date]/[skill-name]/SKILL.md
    ```
+
+   (See Path pinning under Task-session skill updates for the absolute path
+   this resolves to in Claude Code, and for the baseline-hash requirement.)
 
 2. Present each updated skill file using `present_files` so the user can
    review it inline and install it directly via the upload button.

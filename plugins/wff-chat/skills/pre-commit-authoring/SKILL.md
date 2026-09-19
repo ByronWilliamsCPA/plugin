@@ -129,7 +129,10 @@ Before merging a PR that adds or modifies a hook:
 - [ ] Scope is staged files (no full-history flags)
 - [ ] Config is in a file (`--config <path>`) not inline (`-d "..."`)
 - [ ] Hook entry tested via `pre-commit run <hook-id> --all-files` and
-      `pre-commit run <hook-id>` against a small staged change
+      `pre-commit run <hook-id>` against a small staged change; confirm
+      fail-when-found polarity (it fails on a known-bad fixture and passes on
+      a clean one), not just that the hook ran without erroring (Obs 569,
+      843, 1154)
 - [ ] Failure output is actionable (the developer can tell what to fix)
 - [ ] If new failure modes are introduced, an invariant is documented in
       `.claude/rules/pre-commit.md`
@@ -231,6 +234,51 @@ Patch any findings against the invariants above before committing the audit fix.
   classified as a hard rule, audit coverage, not presence: confirm the hook
   actually matched at least one file in the paths it is meant to govern, and
   broaden the `files:` regex when it does not. (Obs 71)
+
+- **Several hooks read the git INDEX, not the working tree.** `chmod +x`
+  alone doesn't fix a staged 644 mode for
+  check-shebang-scripts-are-executable; use `git add --chmod=+x <file>`
+  instead of a bare `chmod +x`. And `pre-commit run --files <path>` on an
+  untracked file passes vacuously (no index entry to check) then fails at
+  the real commit; when pre-verifying a NEW file, `git add` it first, then
+  run `pre-commit run --files <path>`, since a pass on an untracked path
+  does not transfer to the commit-time state. (Obs 843, 1154)
+- **Secret-scanner false positives on structurally-valid placeholder
+  credentials.** Service-connection-string detectors (Postgres/MySQL/Redis
+  in TruffleHog/detect-secrets) flag any syntactically valid credential
+  pattern regardless of placeholder sophistication, and a failed
+  live-verify attempt still counts as a block. For docker-compose dev
+  defaults, exclude the file path from that detector rather than loosening
+  the confidence threshold (`--only-verified` would also blind the scanner
+  to real, currently-unreachable secrets). For multi-line YAML (`run: |`
+  blocks), detect-secrets attributes the finding to the block-scalar
+  HEADER line, not the secret's own line; put the
+  `# pragma: allowlist secret` there. Establish and document a placeholder
+  convention for credential-shaped test fixtures (`<user>`/`<host>`), and
+  remember local pragmas never satisfy server-side scanners (GitGuardian):
+  for a value that will be pushed, the durable fix is making it stop
+  pattern-matching as a credential, not allowlisting it. (Obs 676, 949,
+  1388)
+- **Guard-match anchoring and exclusion-scope fidelity.** A guard that
+  enforces the ABSENCE of a config key must anchor the match to key
+  position (start-of-line key-colon pattern), not a bare substring;
+  rationale prose explaining the removal legitimately contains the same
+  key-colon token and will self-trigger the guard. An `exclude:` pattern's
+  scope must match the PROPERTY its adjacent comment cites (file
+  provenance, e.g. "PlantUML output has no trailing newline"), not the
+  directory where the bug was first noticed; audit every `exclude:`
+  pattern against its own rationale comment and count how many files of
+  that type fall outside it. A literal-byte grep for a banned character
+  (no-em-dash) must also cover its encoded equivalents (HTML named and
+  numeric entities), since agents sometimes reach for entities specifically
+  to dodge a literal-character ban. A required-variable interpolation in
+  docker-compose fails `docker compose config` in any environment lacking
+  that variable; prefer a default-valued interpolation so the file stays
+  validatable in CI. When `--all-files` fails on a path outside your diff,
+  confirm pre-existing via `git diff <base> -- <path>`, gate your own
+  change with `pre-commit run --files <staged>`, and report the pre-existing
+  finding separately; never bypass a gate to absorb someone else's issue.
+  (Obs 840, 1438, 814, 780, 775)
 
 ## Sources
 

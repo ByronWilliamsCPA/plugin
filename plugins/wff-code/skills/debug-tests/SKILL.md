@@ -29,7 +29,7 @@ If no path is provided, run the full suite to identify failures first.
 
 ## Workflow
 
-### Step 1 — Reproduce
+### Step 1: Reproduce
 
 ```bash
 pytest $ARGUMENTS -v --tb=long 2>&1 | head -100
@@ -37,21 +37,41 @@ pytest $ARGUMENTS -v --tb=long 2>&1 | head -100
 
 Capture the full error output before drawing conclusions.
 
-### Step 2 — Classify Root Cause
+### Step 2: Classify Root Cause
 
 Investigate in this order (do not skip ahead to application logic):
 
-1. **Fixtures & configuration** — conftest.py issues, missing seed data, incorrect
+1. **Fixtures & configuration**: conftest.py issues, missing seed data, incorrect
    factory defaults, fixture scope problems
-2. **Environment mismatches** — SQLite vs Postgres differences (JSONB, UUID, pool_size),
+2. **Environment mismatches**: SQLite vs Postgres differences (JSONB, UUID, pool_size),
    missing env vars, Python version incompatibility
-3. **Dependency drift** — a locked dependency changed behavior, version constraint mismatch,
+3. **Dependency drift**: a locked dependency changed behavior, version constraint mismatch,
    breaking change in an updated library
-4. **Test isolation** — shared state between tests, ordering dependencies, missing teardown,
+4. **Test isolation**: shared state between tests, ordering dependencies, missing teardown,
    leaked side effects
-5. **Application logic** — only investigate here after ruling out 1–4
+5. **Application logic**: only investigate here after ruling out 1-4
 
-### Step 3 — Fix and Verify
+#### Category 4 in depth: two flaky signatures and the frozen-config trap
+
+Shared-mutable-state flakiness has two opposite signatures that require opposite fixes,
+plus one config trap that defeats monkeypatch silently:
+
+- For async SQLAlchemy/asyncpg fixtures under pytest-asyncio, default to `poolclass=NullPool`.
+  asyncpg connections are bound to the event loop that created them, and pytest-asyncio's
+  per-test loop plus connection pooling produces order-dependent failures otherwise. Flag
+  "passes alone, fails in full suite, a different test each run" as this signature.
+- In a shared-fixture suite, run a failing spec both alone and alone-after-reset. Solo-pass
+  but fails-in-tier means a real ordering or load defect (a genuine race, confirmed by
+  isolating and repeating the spec 3x). Fresh-state-pass but fails-on-repeat means an
+  accumulated-state artifact. Treating either the wrong way either ships a bug as a flake
+  or burns time "fixing" the environment.
+- When a test fixture monkeypatches a config value that appears to do nothing, check whether
+  the config framework froze that value at import or class-definition time (e.g.
+  pydantic-settings `SettingsConfigDict(env_file=...)` is read once, at class definition).
+  The override must be injected at call time or patch the frozen attribute directly, or the
+  real `.env` leaks into the suite silently.
+
+### Step 3: Fix and Verify
 
 - Apply the minimal fix targeting the classified root cause
 - Re-run the failing test in isolation:
@@ -63,7 +83,7 @@ Investigate in this order (do not skip ahead to application logic):
   uv run pytest --tb=short
   ```
 
-### Step 4 — Document
+### Step 4: Document
 
 Include the root cause category in the commit message:
 

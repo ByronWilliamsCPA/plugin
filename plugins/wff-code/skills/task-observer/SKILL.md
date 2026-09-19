@@ -88,6 +88,18 @@ on another skill to invoke it, a breakdown in that chain would silence all
 observation activity. Instead, load both task-observer and any related skills
 directly from your configuration instructions.
 
+**The CLAUDE.md instruction alone is a soft trigger.** Sessions have
+repeatedly shown it losing to a task-shaped opening message: the agent
+begins tool use immediately and the prose instruction is never acted on, so
+the skill fires only via `/close`'s explicit step, if at all. Pair the
+instruction with a real SessionStart hook (see Backstop 1) that injects an
+explicit imperative before the first tool call, rather than relying on the
+agent reading and acting on prose at context-load time. The inverse failure
+also happens: the trigger fires on a turn that plainly doesn't meet the
+When to Observe criteria below (a quick factual question, casual
+conversation). When that happens, do a brief silent check and stand down
+rather than loading the full skill body narratively.
+
 ### Configuration Detection & Compaction Behaviour
 
 Full detail: context/lifecycle.md (read when performing that workflow) -- covers config-file detection at session start and re-activation behaviour after context compaction.
@@ -184,18 +196,49 @@ against a baseline recorded at session start by
 `scripts/hooks/task-observer-reminder.sh`. When a session used tools to
 produce deliverables and logged nothing, the hook blocks turn end once and
 asks for a flush. It depends on nothing the agent has to remember, which is
-why it ranks first. An earlier version of this skill bound the checkpoint to
-TodoWrite completions, so a session that never called TodoWrite had no trigger
-at all; that gap is what the hook closes.
+why it ranks first, but only when it is actually live. An earlier version of
+this skill bound the checkpoint to TodoWrite completions, so a session that
+never called TodoWrite had no trigger at all; that gap is what the hook
+closes.
+
+**This backstop is inert unless the scripts are both present AND registered
+as hooks in `settings.json`.** A script existing on disk, or even declared
+correctly in the canonical `hooks.json`, is not the same as being live:
+propagation from `hooks.json` to the runtime `settings.json` requires
+running `setup.sh`, and nothing detects the gap when that step is skipped.
+This produced a real 32-day outage in production: both scripts were
+authored, reviewed, and merged into `hooks.json` correctly, but never
+reached `settings.json`, so the backstop ran silently inert the whole time.
+Before relying on it, verify registration, not just presence:
+`grep -c task-observer ~/.claude/settings.json` (0 means inert), or diff
+`hooks.json` against `settings.json` directly. If either check comes back
+empty, this backstop is not active and only Backstop 2 (behavioural) is in
+play.
+
+**The baseline must be session-scoped, not a global count.** In a repo with
+concurrent sessions, a shared counter lets any writer's append satisfy
+every session's obligation, including one that logged nothing at all; this
+has been observed in production. Record the session id alongside the
+baseline (or diff the log's tail against a session-start snapshot) and
+attribute only the lines this session's process wrote.
 
 **Backstop 2, behavioural: flush at batch boundaries.** Immediately before
-dispatching the next subagent, marking a task item completed, or starting a
-new unit of work, WRITE any accumulated observations. The write is the
-checkpoint, not a mental note to write later. Subagent-controller sessions are
-the highest-risk case: one six-task session ran roughly twelve subagent
-dispatches with several correction moments and wrote zero observations until
-the closing step. A checkpoint that competes with cognitively demanding work
-loses to that work, so attach the write to a step that has to happen anyway.
+dispatching the next subagent, marking a task item completed, starting a new
+unit of work, or crossing a numbered-step transition in a workflow skill
+being executed (e.g., between `pr-review.md`'s steps or `pr-fix.md`'s steps:
+a numbered-step workflow is a batch boundary on the same footing as a
+subagent dispatch, even when the workflow never calls TodoWrite), WRITE any
+accumulated observations. The same applies when a subagent's finding is
+rejected or materially corrected, including one delivered via a background
+task notification rather than a user turn: write the observation before
+composing the reply, since rejection is the highest-signal event in a
+controller session. The write is the checkpoint, not a mental note to write
+later. Subagent-controller sessions are the highest-risk case: one six-task
+session ran roughly twelve subagent dispatches with several correction
+moments and wrote zero observations until the closing step, and this exact
+failure has recurred at least five times since. A checkpoint that competes
+with cognitively demanding work loses to that work, so attach the write to a
+step that has to happen anyway.
 
 **Before assigning any observation number, run a mandatory pre-logging step:**
 Search the entire log file for all lines matching the pattern `### Observation \d+:`,
@@ -268,6 +311,45 @@ write — are heavier and require more infrastructure; the
 post-write-verify-and-renumber pattern works with plain shell and
 self-heals.
 
+**Hazards in the write itself:** The numbering checks above assume the
+append executes cleanly; production incidents show that assumption can
+fail even when both checks pass. Write the observation body to a temp file
+with a file-writing tool, never a bare shell heredoc: an unquoted heredoc
+executes backticked prose in the body as command substitution, splicing
+unrelated output into the log while the count-based checks still report
+success. If a heredoc must be used, quote the delimiter (`<< 'EOF'`) to
+suppress that expansion, then substitute the observation number afterward
+with `sed` rather than hand-typing it into the header, and verify the
+number by re-reading the file, not the shell variable that produced it; a
+quoted heredoc with a hand-typed number can go stale between computing
+`$PROPOSED` and writing it, in exactly the window a parallel session can
+claim. The collision check must also execute inside the same command or
+tool call as the write itself, using an explicit `if`/`then`/`else`, never a
+`&&`/`||`-chained `exit` (e.g. `grep -q ... && exit 1 || cat >> ...`): if that
+chain runs inside any subshell (a `(...)` grouping, a command substitution, or
+a function called in a pipeline), `exit 1` only terminates the subshell and
+returns a nonzero status to the *enclosing* expression, which the trailing
+`|| cat >> ...` then reads as "the check failed" and runs the append anyway,
+so the write happens even though a collision was detected. Use the
+unambiguous form instead:
+
+```bash
+if grep -q "$MARKER" "$LOGFILE"; then
+  echo "COLLISION: $MARKER already present in $LOGFILE"
+  exit 1
+else
+  cat >> "$LOGFILE"
+fi
+```
+
+A separate check-then-write split across two tool calls reopens the race
+the check exists to close, even when the check's own verdict was correct.
+Finally, before renumbering a post-write collision, compare the appended
+entry's title and body against the existing entry at that number; if they
+match, the two appends are the same content landing twice, not two
+distinct observations; delete the just-appended duplicate instead of
+renumbering it, and log a meta-observation about the double-write.
+
 **Why both checks are required:** Stale-read collisions and race-condition
 collisions are different classes of error. The pre-write assertion closes
 the first; the post-write verification closes the second. Stacking more
@@ -318,13 +400,20 @@ and generalisation (Principle).
 under the header.** The entire observation lifecycle (OPEN, ACTIONED, DECLINED)
 and every review query keys on this line. An observation logged without it is
 invisible to the weekly review's OPEN filter, so it silently accumulates as an
-unprocessed backlog that no review ever surfaces. This is a real failure mode:
-the field was once present only in the Log Structure example below and absent
+unprocessed backlog that no review ever surfaces. This has failed twice: the
+field was once present only in the Log Structure example below and absent
 from this format block, and every observation logged for ten days afterward
-dropped it, producing 170 status-orphaned entries. The fix was structural,
-the field now lives in the template agents actually copy. When logging, copy
-this whole block including the Status line; never reconstruct the format from
-memory.
+dropped it, producing 170 status-orphaned entries. Moving the field into the
+template agents actually copy (2026-06-17) was called a structural fix, but
+69 more observations logged 2026-07-02 through 2026-07-06, after that fix
+landed, still omitted it: prose, and even a corrected template, are not
+sufficient on their own. When logging, copy this whole block including the
+Status line; never reconstruct the format from memory. Then close the gap
+mechanically: after appending, assert the new entry contains a `**Status:**`
+line as its first field (e.g.
+`sed -n '/### Observation N:/,/^### /p' log.md | grep -q '^\*\*Status:\*\*'`).
+Treat a missing Status line exactly like a numbering collision, caught
+before the write is considered complete, never discovered later by a review.
 
 **Context preservation check:** When logging an observation, verify that all
 information needed to act on it is available in the shared folder. If the
@@ -335,6 +424,17 @@ where the context lives. Observations that reference data only available in
 the current session (uploaded files, API outputs, in-memory results) are
 incomplete — a future review session will have the observation but not the
 data needed to implement it.
+
+**An observation does not change behaviour within the session that logged
+it.** Within a session, only a runnable check changes behaviour; writing an
+observation is a message to a future session, not a correction to the
+current one. A measurement-reasoning error logged as an observation
+recurred roughly two hours later in the same session, and was only caught
+the second time because the claim lacked a plausible mechanism. When an
+observation describes a reasoning error the agent is liable to repeat
+within the same session, its Suggested improvement should propose a
+mechanical guard (e.g., "name the mechanism before reporting a change; if
+none exists, sample before concluding"), not a reminder to be more careful.
 
 ### Handoff Doc Analysis & Archival on Write
 
@@ -420,7 +520,12 @@ these steps at the start of each task-oriented session:
    Principle Propagation, context/lifecycle.md). If the files already
    exist, proceed to step 2.
 
-2. **Scan for relevant context.** Read any OPEN observations and active
+2. **Repair Status-less entries, then scan for relevant context.** Before
+   reading for relevance, count observations lacking a `**Status:**` line
+   as their first field. Repair each to `**Status:** OPEN` before doing
+   anything else; this exact gap has recurred at scale (see the Status
+   field paragraph under How to Log), and a silent backlog is worse than a
+   brief mechanical pass. Then read any OPEN observations and active
    cross-cutting principles. Don't surface them unprompted unless they're
    directly relevant to the current task — just hold them in awareness.
 
@@ -428,8 +533,13 @@ these steps at the start of each task-oriented session:
    `[workspace folder]/skill-observations/last-review-date.txt`. If the
    file doesn't exist or the date is more than 7 days ago, trigger the
    Weekly Comprehensive Review (described in full in context/lifecycle.md)
-   before proceeding with the user's task. If fewer than 7 days have
-   passed, proceed normally.
+   before proceeding with the user's task. Also count OPEN observations
+   regardless of the timestamp: if any cluster of roughly 5 or more shares
+   the same skill or failure keyword, or the total OPEN count exceeds
+   roughly 150, surface the review as overdue even when the date alone
+   looks current: a review that only checks the clock can sit on a
+   backlog of well over a thousand observations without ever firing. If
+   neither condition is met, proceed normally.
 
 4. **Check the configuration file.** Run the config detection described in
    Detecting the Configuration File (context/lifecycle.md, under
@@ -437,7 +547,13 @@ these steps at the start of each task-oriented session:
 
 ### Keeping the Log Clean
 
-Log cleanup is handled by the archival mechanism (event-driven, runs on every log write). Full detail: context/lifecycle.md, Archival on Write (read when performing that workflow).
+Log cleanup runs at the start of each comprehensive review (Step 1), not on
+every append: a normal task session that only appends observations does not
+trigger archival, so the active log grows unbounded between reviews. That
+is expected; it is why review cadence (see Comprehensive Review,
+context/lifecycle.md, and the backlog-size trigger in Session Start
+Protocol step 3) matters. Full detail: context/lifecycle.md, Archival on
+Write (read when performing that workflow).
 
 ## Review & Update Lifecycle
 
@@ -461,6 +577,6 @@ Full detail: context/lifecycle.md (read when performing that workflow) -- covers
 | No persistent storage? | Handoff doc mode — observations surfaced in a structured doc at session end |
 | Scheduler automation? | Step 0 of weekly review auto-checks; silent until tool is available |
 | Observation numbering? | Mandatory pre-logging search ensures no collisions; never use cached numbers |
-| Log archival? | Event-driven — resolved entries are archived on the next log write |
+| Log archival? | Runs at the start of each comprehensive review, not on every append |
 | Simplification signals? | Watch for one-off rules, never-used sections, elaborate workflows users skip, and contradictions |
 | Handoff doc analysis? | Systematically extract implied observations from action items, open questions, and narrative sections |

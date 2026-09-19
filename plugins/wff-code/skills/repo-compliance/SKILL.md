@@ -107,6 +107,46 @@ the precise gap it does not yet name explicitly (see escalation notes for this r
 | api | `openapi-compliance-agent` (via check-repo-compliance.py) | API-001..005 (applies_to: api_repos; skip when api.servesApi is false) |
 | operations | `operations-posture-auditor` | OPS-* (applies_to: deployed_repos; skip when isDeployed is false, UNKNOWN when unset) |
 
+### New compliance domains: standalone invocation path and public-log sensitivity tier (obs 1401, 1403)
+
+Any future `applies_to`-scoped domain must ship, alongside its agent, a short "Running a
+single domain against one repo" note: the catalog flag that must be set and where, the
+standalone dispatch (agent name plus audit/remediation mode), and the deterministic-path
+command. Without it, a naive single-repo run looks like a broken feature rather than an
+unpopulated catalog flag.
+
+Domains whose findings describe absent runtime detection/recovery controls (auth failures
+never logged, no alert reaching a human, unversioned production config) are exactly the kind
+of information a public repo should not commit. Tag such domains `public_safe: false` as a
+label for the human running the sweep: today this tag is documentation only. There is no
+manifest schema entry, parser, logger, or report-consumer anywhere in the codebase that reads
+or enforces `public_safe`, so it does not make routing mechanical, and sensitive text can still
+reach the committed, public `master-log.jsonl` if the operator does not manually honor it. Until
+a parser and gate exist, routing is manual and human-reviewed: write counts and check IDs to the
+log, never `current_value` text, or exclude the domain from the public log entirely and land its
+findings only in the gitignored per-session report, and have the operator double-check this by
+hand before committing the log. This is a known gap, not a mechanically enforced control; per
+this repo's own standard, a rule that recurs after being documented needs a gate, not more
+prose, so treat `public_safe: false` as a placeholder pending real enforcement rather than a
+safeguard to rely on.
+
+### Pipeline success is not outcome verification (obs 1749, 1763)
+
+A passing pipeline step is not proof of the real-world outcome it exists to produce.
+Config presence, execution, and effect are three different states; only the last one answers
+the actual compliance question.
+
+- **MKDOCS reachability.** When a workflow contains a `gh-deploy` (or Pages-deploy) step,
+  assert `gh api repos/<slug> --jq '.has_pages'` is `true` by probing directly, never with a
+  `//` fallback (since `false` is valid falsy JSON that a fallback would mask). A successful
+  `mkdocs gh-deploy --force` proves the build ran, not that GitHub Pages was ever provisioned.
+- **FOUND-022 clean-clone runnability.** Clone the repo to a temp directory, run the README's
+  documented setup and first-usage commands verbatim, and FAIL on any non-zero exit. Pair it
+  with a check that FAILs when `.gitignore` carries a bare extension glob whose stated purpose
+  duplicates an existing directory rule (over-match risk: a repo can pass every pre-commit
+  hook and every test and still fail on a fresh clone because a blanket pattern excluded a
+  required input file).
+
 ### Pre-commit Domain: silent-skip wrapper defeats PC-* presence checks (obs 163)
 
 Hook presence is necessary but not sufficient for PC-* compliance. The cookiecutter-python
@@ -117,6 +157,20 @@ reports a pass, so PC-003/PC-005 presence checks succeed while zero enforcement 
 During the PC-domain audit, grep hook `entry:` blocks for `|| echo`, `|| true`, or
 `command -v ... ||` patterns and treat any silent-skip wrapper as equivalent to hook-absent
 for PC-003/PC-005. This is a fail-open pattern, not a fail-closed gate.
+
+### Pre-commit Domain: PC-* checks are stage-agnostic, not stage-prescriptive (obs 570, 571)
+
+PC-* presence checks verify a hook exists somewhere in the pre-commit pipeline, not that it
+runs at the `pre-commit` git stage specifically. Before remediating a PC-* presence gap,
+detect the target repo's established stage split (for example, a `qlty-full` pre-push job)
+and place new heavy hooks at that same stage rather than defaulting to `pre-commit`; adding
+basedpyright/pydoclint/markdownlint/yamllint/detect-secrets at pre-commit in a repo whose
+convention is heavy lint at pre-push blocks every commit on pre-existing debt. For
+detect-secrets specifically, prefer pre-push (where the tree is clean) or document that its
+baseline must be regenerated against a clean tree; pre-commit's auto-stash of unstaged files
+shifts line numbers in a whole-tree baseline and can loop indefinitely. Treat trufflehog
+(staged-only, fail-closed) as the pre-commit secret gate and detect-secrets as the pre-push
+baseline-regression layer.
 
 ### CI Domain Agent: Triage Notes
 
@@ -174,13 +228,11 @@ Two failure modes make a "required" CI gate non-enforcing while every presence c
 
 Before evaluating a NEW tool for a capability (license compliance, SBOM, vuln scanning),
 grep the existing reusable workflows and the manifest for an existing or dormant equivalent:
-disabled flags, warn-only gates, unused action inputs (e.g., the `fail-on-forbidden-licenses`
-flag in a `python-sbom.yml` license job, a REUSE/SPDX gate). Frame the evaluation as the
-marginal gain over what already exists (including the cost of redundancy), not as a
-blank-slate integration. Capabilities are often already present but disabled or shallow.
-`actions/dependency-review-action`'s `deny-licenses` lever, formerly cited here as an example,
-was retired fleet-wide (2026-09) along with `dependency-review.yml`: the action now requires
-paid GitHub Advanced Security. Do not propose re-enabling it as a "dormant capability."
+disabled flags, warn-only gates, unused action inputs (e.g., a `deny-licenses` lever in
+`dependency-review-action`, a `python-sbom.yml` license job, a REUSE/SPDX gate). Frame the
+evaluation as the marginal gain over what already exists (including the cost of redundancy),
+not as a blank-slate integration. Capabilities are often already present but disabled or
+shallow.
 
 **CI pinning exception list: slsa-github-generator requires tag refs**
 
@@ -325,13 +377,9 @@ limitations (e.g., GitHub PVR unavailable) rather than compliance gaps.
 **Examples:**
 - Repo `homelab-infra` has `repositoryType: "infrastructure"` and `isPrivate: true`
   - Type profile exempts `release.yml`, `release-sign.yml`, `sbom.yml`, `coverage.yml`, `python-compatibility.yml`, `reuse.yml`
-  - Visibility profile additionally exempts check IDs `OSSF-001`, `OSSF-006`
-  - Absent `release.yml` is logged as `EXEMPT (infrastructure type)`
+  - Visibility profile additionally exempts `codeql.yml` (GHAS required) and check IDs `OSSF-001`, `OSSF-006`
+  - Absent `release.yml` is logged as `EXEMPT (infrastructure type)`, absent `codeql.yml` as `EXEMPT (private repo)`
   - OSSF-001 finding is suppressed with `EXEMPT (private repo: badge API is public OSS only)`
-  - `codeql.yml` is absent fleet-wide (2026-09): CodeQL now requires paid GitHub Advanced
-    Security on every repo, public or private, so this is no longer a visibility-scoped
-    exemption. Do not log a `codeql.yml`-absence finding for any repo type or visibility;
-    it is expected everywhere, not just on private/infrastructure repos.
 
 ## Coordinator Prompt Template
 
@@ -473,6 +521,15 @@ catalog; treat the catalog loads in "Local Repo Inventory" and "Type and Visibil
 Evaluation" as conditional, consistent with the stated limitation that the catalog is "a
 starting hint, not a definitive answer."
 
+**Resolve the catalog path itself before declaring catalog-less mode.** Try, in order:
+(1) `~/.claude/docs/reference/github-repos.json`, (2) `readlink -f ~/.claude` to check
+whether `~/.claude` is a real (non-symlinked) directory rather than the `setup.sh`-installed
+symlink, and if so also try the catalog under its actual target, (3)
+`~/dev/.claude/docs/reference/github-repos.json` as a repo-relative fallback. Only enter
+catalog-less mode when none of the three resolve. A `~/.claude` that happens to be a real
+directory on this machine, with no fallback path checked, is a false catalog-less result, not
+evidence the catalog is absent.
+
 ### Anchor field counts to the field, not a substring (obs 105)
 
 When counting or inventorying manifest fields (severity tiers, `override_eligible`, domains),
@@ -591,6 +648,20 @@ consumers (`gh run list -R org/repo --workflow=X`). One sibling succeeding again
 component version falsifies the "shared component is broken" hypothesis and points to a
 caller-side cause (caller passes an input the reusable no longer defines; caller's permission
 grant is below what the reusable's jobs request). Differential diagnosis beats deep-dive.
+
+### Absence findings need a broader search than presence findings (obs 961, 1394)
+
+One positive observation proves presence; no number of negative observations proves absence.
+Before writing any "X is undocumented / not deployed / not present" finding, widen the search
+past the one canonical file or command that produced the negative result:
+
+- For documentation-absence claims, grep the whole `docs/`, `.claude/`, and skill tree for X
+  and downgrade the finding to "documented but not cross-referenced" when hits exist elsewhere.
+- For runtime-absence claims, enumerate at least the package manager (`dpkg -l` or
+  equivalent), the service manager (`systemctl list-units --all`), and the container runtime
+  (`docker ps -a`), plus an external corroborating signal where one exists.
+- State which surfaces were checked directly in the finding text, so a reader can see the
+  search was broad, not a single grep or a single `docker ps -a`.
 
 ### Catalog entries are audits, not roster rows: stub, never fabricate (obs 207)
 

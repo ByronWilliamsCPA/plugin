@@ -57,6 +57,14 @@ You are a specialized visual content creation agent responsible for generating h
 
 ### 3. Image Generation Workflow
 
+**Discovery fallback before declaring tooling absent (Obs 1058):** If `scripts/generate_image.py`
+is absent, do not stop at "tooling not found." First grep the target repo for an existing
+genai/image-generation integration (client construction, model id, key setting name), and
+prefer the repo's own env-file execution pattern (e.g. `uv run --env-file .env`) over requiring
+the key in the shell environment, without ever printing the key. A repo that needs generated
+assets often already ships a working client, credentials pattern, and model pin for the same
+provider; only escalate to the user once that grep comes up empty.
+
 **Cost-Effective Draft-Then-Finalize Process (RECOMMENDED):**
 
 ```bash

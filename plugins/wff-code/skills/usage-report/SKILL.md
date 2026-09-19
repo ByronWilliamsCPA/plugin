@@ -139,9 +139,17 @@ curl -s http://127.0.0.1:4981/api/sessions/<id>/transcript-stats
 ```
 
 Returns a `subagents[]` array. Each entry has: `agentType`, `description`,
-`model`, `inputTokens`, `outputTokens`, `cacheReadTokens`, `costCents`.
-Also returns a `byModel[]` breakdown and a `summary` aggregated across the
-root agent and all subagents.
+`model`, `inputTokens`, `outputTokens`, `cacheReadTokens`, `costCents`. Note
+that `inputTokens` already includes `cacheReadTokens`/`cacheCreate*`; do not
+add them again when summing. Prefer `costCents` as the cross-model
+normalizer.
+
+Also returns a `byModel[]` breakdown and a `summary` object aggregated across
+the root agent and all subagents. The verified `summary` keys (do not assume
+`.summary.totalTokens`; it does not exist and silently returns 0) are:
+`inputTotal`, `outputTotal`, `costTotalCents`, `cacheHitRate`, `durationMs`,
+`toolCalls`, `toolStats`, `filesRead`, `filesEdited`, `gitCommits`,
+`userPrompts`, `totalCalls`, `startedAt`.
 
 ### 4. Summarize
 
@@ -153,8 +161,25 @@ Report:
 - Policy flags: note any subagent whose model contradicts CLAUDE.md Model
   Selection policy. Expected: Explore subagents on `claude-haiku-*`; general
   subagents on `claude-sonnet-*`; Opus or Fable only when explicitly justified.
+  Before flagging a dispatch that omits an explicit `model` parameter as "left
+  to chance," resolve the agent's own default first by reading `model:` from
+  `.claude/agents/<type>.md`. Flag only when no pin exists at all (built-ins)
+  or the resolved pin contradicts `rules/supervisor.md`; an omitted parameter
+  that resolves correctly one layer down via the agent's own pin is not a
+  finding.
 
-### 5. Caveats
+### 5. Aggregate sub-mode (fleet-wide delegation questions)
+
+A single most-recent session answers only that session's delegation
+question, not a fleet-wide one. For a question spanning multiple sessions,
+fan `transcript-stats` over every id returned by `sessions/recent` (not just
+the most recent), filter out any session where the fetch returns
+`.error != null`, and report: delegated cost share, per-model split, and the
+root-to-subagent dispatch matrix aggregated across all fetched sessions.
+State how many sessions were dropped for missing transcripts or errors so the
+aggregate's coverage is visible, not silently partial.
+
+### 6. Caveats
 
 - transcript-stats requires the session JSONL to still exist on disk. For
   deleted or cleaned transcripts the endpoint returns `file_not_found`. Query
