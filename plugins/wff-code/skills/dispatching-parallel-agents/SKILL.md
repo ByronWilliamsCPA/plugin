@@ -237,6 +237,18 @@ A path allow-list constrains where an agent SHOULD write, but goal pressure make
 - **Contradiction license:** "Verify the root cause against the actual code before editing. If the code does not behave as this brief states, STOP and report rather than implementing the brief literally." A compliant agent given a wrong premise ships a wrong fix silently; this clause converts a controller error into a flagged correction. (One agent told to difference a curve as cumulative empirically found it was per-year and non-monotonic, and reported instead of shipping negative back-half distributions.)
 - **Out-of-scope blocker = return, not route-around:** "If you cannot complete within your path allow-list, return the blocker and a proposed fix rather than implementing it in an out-of-scope file." On return, diff the actual changed-file set against the allow-list before integrating, and quarantine any out-of-scope edits into a separate, disclosed commit.
 
+### A stated constraint is a request, not an enforcement mechanism
+
+Whether the constraint is a style rule, a "do not commit," or a scope
+boundary, verify compliance mechanically on return (grep the diff, run the
+project's style/lint check, diff the changed-file set) rather than trusting
+that stating it in the prompt made it true. Global writing/style rules and
+subagent prompt constraints alike are requests, not enforcement: they do
+not propagate automatically into subagent output. When forbidding git
+operations, enumerate the specific commands forbidden (commit, checkout,
+reset --hard, push --force) -- "don't commit" does not imply "don't touch
+the index or HEAD."
+
 ### Keep verification out of the deliverable
 
 When a brief embeds a pre-flight or self-check (banned-word lists, em-dash examples, a quality checklist), state explicitly that it is a step the agent PERFORMS and reports in its return message, never writes into the deliverable file. Agents otherwise copy the checklist into the output as a trailing section, and when the checklist quotes the very patterns it forbids (banned words, em-dashes), the output then fails the project's own prose checks and is inflated with meta content.
@@ -301,6 +313,13 @@ When downstream work is blocked on upstream gated inputs that do not exist yet (
 This pairs naturally with a "stop at the gate and wait" instruction. The superpowers `executing-plans` skill is the conceptual home for this pattern; it is captured here because that skill is vendored read-only.
 
 ## Common Mistakes
+
+**Relaying an unverified "this is active" finding:** before relaying a subagent's
+finding that a configuration or rule is active, verify the actual runtime injection
+path yourself (which file loads it, whether it is reachable from the current
+session), not just that the matching text exists somewhere in the tree. A subagent
+that found the right words in the wrong (unreachable) file produces a confidently
+wrong report.
 
 **Vague scope:** "Fix all the tests" -- agent gets lost
 **Specific:** "Fix agent-tool-abort.test.ts" -- focused scope
@@ -370,6 +389,12 @@ WHOLE target file for existing claims about the same entities and to update or c
 rather than append a parallel claim, and add a post-fold check: grep the merged file for the
 key entities and confirm a single consistent value per fact. Treat "two sections, two values"
 as a merge defect, not a formatting nit.
+
+**Silent skip via shell control-flow:** a `cmd1 && cmd2` chain reports the
+same empty output whether cmd1 ran and found nothing or cmd1 never ran at
+all (nonzero exit). Piping through `tail`/`head` also discards the upstream
+exit status, silently defeating any `&&` gate after it. Check `$?` (or run
+commands unpiped) before treating empty output as a negative result.
 
 ## Fleet Migration Orchestration
 
@@ -452,6 +477,14 @@ After agents return:
 4. **Meta-leakage sweep** -- For drafting fan-outs, grep deliverables for pasted checklists or self-check sections before integration
 5. **Run full suite** -- Verify all fixes work together
 6. **Spot check** -- Agents can make systematic errors
+7. **Audit closed items, not just open ones** -- A status marked "done" or
+   a line reference an exploration agent returned is a snapshot, not a
+   durable fact; it can go stale as the branch or the mainline moves.
+   Before a synthesis step treats a prior finding as settled, re-check items
+   marked closed with the same rigor as open ones, and re-verify line
+   references against the current tree. When judging whether a feature or
+   fix already exists, check in-flight branches and open PRs, not only the
+   default branch.
 
 ### Re-verify what enters the deliverable; trust measurement over prose
 
@@ -459,7 +492,11 @@ Agents reliably locate and characterize; their arithmetic over their own interme
 
 - **Batch completion is a count, not a claim.** When an agent was given N items, grep-count the actual artifacts against N before accepting "done." An agent that hits a turn or output limit can return an upbeat summary ("Continuing...") while having finished only the first few of N; the prose will not flag the shortfall, the artifact count will. On a partial result, dispatch a fresh agent for the named remainder rather than resuming the stalled one.
 - **Re-derive aggregates with one authoritative command.** Any count or inventory that will appear in the output (token tallies, file counts, occurrence totals) gets re-computed by the controller with a single `grep -c` / `wc -l` over the full scope, never by trusting an agent's summed per-item subtotals. A subagent that summed a per-file table to 77 was off by 40 against a direct aggregate grep of 117.
-- **Disagreement on a binary fact is a hard re-check trigger.** When two agents return contradictory claims about the same existence/pass/fail/count fact, do not average or majority-vote: run the one-line check (`ls | wc -l`, read the field) yourself. A wrong "exists/passes" claim is more dangerous than a wrong nuanced one because it reads as settled and seeds confident downstream findings.
+- **Disagreement on a binary fact is a hard re-check trigger.** When two agents return contradictory claims about the same existence/pass/fail/count fact, do not average or majority-vote: run the one-line check (`ls | wc -l`, read the field) yourself. A wrong "exists/passes" claim is more dangerous than a wrong nuanced one because it reads as settled and seeds confident downstream findings. The same re-check applies even when agents
+  AGREE: correlated context or a shared blind spot can make two agents
+  wrong in the same way. For any deterministic, cheaply-checkable fact (a
+  git state, a file's existence, a count), run the one-line check yourself
+  rather than accepting consensus as proof.
 - **Re-pin load-bearing claims to a fresh snapshot when the tree moved.** If agents reviewed a concurrently-edited or long-lived shared tree, take one fresh snapshot after all return and re-confirm every Critical/blocker claim that rests on an exact line number, a crash, or a numeric magnitude. A claim true at an agent's read-time can be false by synthesis-time; downgrade claims that no longer reproduce and note they were transient mid-edit artifacts.
 - **Stray-artifact sweep.** When agents wrote into a shared output directory, diff the directory's actual contents against the union of contracted deliverables and investigate every extra file before integrating. An out-of-scope file (a fabricated fixture, a side-effect CSV) masquerades next to real deliverables and gets consumed silently as if authoritative.
 - **Blind, positional re-verification.** When spot-checking extracted values against a source of truth, the verifying agent must read ONLY the source, never the produced artifact, and be given positional/structural locators ("the first two fund rows on page 2") rather than the values to confirm. The controller, not the verifier, compares the independent readings. Handing the verifier the candidate answers invites confirmation bias and propagates false positives.

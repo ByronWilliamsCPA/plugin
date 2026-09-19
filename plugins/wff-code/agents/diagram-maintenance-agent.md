@@ -288,6 +288,19 @@ grep -r "old_path" docs/architecture/diagrams/
 3. Report undocumented source files
 4. Report stale diagram references (files no longer exist)
 
+**Grep precision (Obs 1436):** replace a bare `grep -rn "module_name"` with
+`grep -rn "from pkg.module import\|import pkg.module"`. A bare module-name grep can return
+mostly Sphinx docstring cross-references rather than real imports. Never truncate the result
+with `| head` when the count itself is the finding: truncation under-counts a module with many
+real hits while prose references over-count another. Mark `TYPE_CHECKING`-guarded imports
+separately, since they do not execute.
+
+**Collapse duplicated derived facts (Obs 1434):** when a `.puml` states the same derived fact
+(importer lists, call sites, counts) in more than one location (e.g. a header block and a
+bottom note), collapse to a single enumeration with the others pointing to it, regardless of
+whether the copies currently agree. No checker reads free text inside a diagram, so duplicate
+statements of the same fact drift from each other and from the actual code silently.
+
 ## Common PlantUML Syntax Issues
 
 - **Divider syntax**: Use comments (`' === SECTION ===`) not `== SECTION ==` dividers
@@ -340,6 +353,20 @@ Description of the diagram.
 
 ![Diagram Alt Text](diagram-name.svg)
 ```
+
+**Cross-check partial-failure counts (Obs 1432):** when a regeneration tool reports a
+partial-failure count (e.g. "Rendered 2/13"), cross-check it against an independent, cheap
+signal before chasing missing diagnostics: `git status --porcelain` on the target paths, plus a
+content-level check (error-card marker scan, byte-identical-sibling scan). A tool's own success
+accounting is a separate claim from what it actually wrote to disk, and a destructuring bug in
+the tool itself can make its printed count wrong while the renders succeeded.
+
+**Classify before committing (Obs 1433):** after re-rendering, diff each artifact's semantic
+content against the committed version before trusting the diff as real. For SVG, compare the
+concatenated `<text>` node contents, not the raw file bytes: re-rendering on a different font
+stack can change geometry attributes with zero source-content change, burying real edits in
+noise. Revert any file whose semantic content is unchanged; a diagram whose only source edit
+was a comment must produce no SVG diff.
 
 ## AI Visual Generation
 

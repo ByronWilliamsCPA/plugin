@@ -44,7 +44,11 @@ Explore subagent (`subagent_type: "Explore"` in the Agent tool):
       external gates like SonarCloud) via API, not just git mergeability. For commit-claimed
       proofs, verify the cited code against the cited check. A "proven" pattern in a handoff
       is a claim about a past moment, not a present property -- plans that inherit broken
-      patterns multiply the rework across every task built on them.
+      patterns multiply the rework across every task built on them. This includes the spec's claims
+      about which library or CLI framework is in use (verify against the actual import/dependency
+      manifest, not the spec's assumption), an installed tool's actual capabilities (not just its
+      `--version` string), and any CHECK/constraint annotations from a data-model doc that must
+      survive translation into ORM model code verbatim.
 - [ ] **Verify-present-tense-defects:** For any gap, defect, or fix the source spec/audit
       asserts about the CURRENT code's behavior, reproduce or verify it against the source
       before writing a task that depends on it. A spec or upstream audit is a set of
@@ -68,6 +72,16 @@ Explore subagent (`subagent_type: "Explore"` in the Agent tool):
       different tables, so a command that "looks standard" can be a no-op or error in repos
       using the other convention. Copy the flag style from an existing working command (CI
       workflow or docs) verbatim. (Obs 317)
+- [ ] **Sweep every writer of a changed ORM/schema column, not just the primary model file:**
+      when a plan adds or changes a column, model, or migration, grep for every file that writes
+      it (alembic env, seed scripts, fixtures, factories) and every file that could assert its
+      presence (conftest, table-registration tests that import the model class). List them
+      explicitly as separate tasks. If the same missing-writer defect has recurred more than
+      once in this codebase, add a task to consolidate the write path to one chokepoint instead
+      of repeating the manual sweep.
+- [ ] **Confirm target paths are not gitignored:** before writing a commit step for any
+      generated artifact, build output, or the plan document itself, check `.gitignore` for the
+      target path. A commit step against a gitignored path silently no-ops.
 
 Skip this step only if the plan covers a brand-new, isolated repository with no existing code.
 
@@ -233,7 +247,10 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 
 **1. Spec coverage (clause-level, not section-level) (Obs 324):** Split each spec section into individual testable claims, anything with a verb describing runtime behavior, and point each CLAIM to a task step. Section-granularity checks pass when ANY clause in the section is implemented, so a section like "429/5xx retry, then failover to the next candidate" reads as covered even when one clause (failover substitution) has no implementing step. Once the plan exists, every downstream reviewer verifies against the plan, so a clause dropped at planning time becomes invisible to the entire review chain. List any gaps. Note: a live end-to-end run against the spec's acceptance criteria is the only reviewer that does not inherit the plan's blind spots; schedule one before declaring parity.
 
-**2. Placeholder scan:** Search your plan for red flags; any of the patterns from the "No Placeholders" section above should be fixed.
+**2. Placeholder scan:** Search your plan for red flags; any of the patterns from the "No Placeholders" section above should be fixed. Also run the plan's literal code blocks (test assertions
+especially) mentally against the repo's own lint config (ruff rules, PT-series pytest-style
+rules). A verbatim code block that violates the project's own gate will fail the moment an
+implementer copies it faithfully.
 
 **3. Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
 
@@ -261,6 +278,10 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
     - **Pairwise sweep:** list every constraint, requirement, and edge case (C1..Cn); for every PLAUSIBLE pair (bound it to pairs that could plausibly interact, not a blind N-squared), mark it compatible or CONFLICT with one clause why. Every CONFLICT gets resolved in the plan now, or logged as an explicit open decision; a found-but-unresolved conflict is still a win, it is a bug caught before code exists.
     - **Fresh-context cold read:** for a plan with several interacting requirements, invoke the `doubt-driven-development` skill's Step 3 (dispatch a fresh-context reviewer) against the finished plan alone, withholding your own reasoning trace, and ask exactly: "Which two statements here cannot both be true? Which requirement has no handling for which edge case? What does this design assume that it never states?" A reader who never walked the path that produced the plan is structurally positioned to see what you can't, because you are anchored on it and they are not.
     - **N-version divergence, for the hard kernel only:** identify the roughly 20% of the plan that decides the outcome (the hard kernel), and dispatch 2-3 subagents to solve just that piece independently, each blind to the others' attempts. Where they agree, you're probably safe. Where they diverge is the load-bearing, uncertain decision, exactly the spot a single pass would have committed to blindly; investigate every divergence rather than picking one arbitrarily.
+
+**11. Assertion discrimination check:** for every prescribed test assertion, confirm it would actually FAIL against the pre-fix or buggy code (a revert-probe), not just pass against the intended fix. Reject substring/contains checks against compound or structured values (parse the structure instead), and reject invariants that only bound a net or aggregate value when the real risk is a symmetric per-item sign error.
+
+**12. Blast-radius sweep:** for any change to a shared schema field, validation gate, or access-control scope, run a mechanical grep/search for every consumer, fixture, and projection touched -- do not rely on recalling the plan's own task list. Grant-shaped or visibility-widening features additionally need an end-to-end test from the grantee's own perspective, not just the owner's.
 
 If you find issues, fix them inline; no need to re-review. If you find a spec requirement with no task, add the task.
 

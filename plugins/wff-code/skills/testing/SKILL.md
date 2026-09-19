@@ -125,6 +125,11 @@ def test_example():
     assert result == expected_output
 ```
 
+The Assert phase must check the outcome of the Act phase, not a precondition
+already established in Arrange. An assertion that only restates Arrange-phase
+state passes whether or not the Act phase does anything, and gives false
+confidence that behavior is covered.
+
 ### Fixtures
 ```python
 @pytest.fixture

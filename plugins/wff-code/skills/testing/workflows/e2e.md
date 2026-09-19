@@ -222,6 +222,28 @@ def test_pipeline_partial_failure_rolls_back_side_effects(tmp_path):
     assert not output_file.exists()
 ```
 
+## Synchronization and Detection-Control Blind Spots (Obs 1197, 1543, 1710)
+
+**Synchronize on a causally downstream state before navigating.** After clicking a
+control whose handler fires an async mutation, synchronize on a UI state causally
+downstream of the awaited call (a dialog closing, a spinner clearing) before
+navigating or reloading. A click event resolves on dispatch, not completion, so a
+following reload/navigation can abort the in-flight request and silently drop the
+write; this passes in isolation and fails only under load.
+
+**Pair every emptiness assertion with a non-zero sibling.** An assertion like "sees
+zero rows" for access-controlled data is satisfied identically by "correctly
+filtered" and "globally broken" (e.g. row-level security returning zero rows to
+everyone, not just the excluded party). Pair every such assertion with a sibling
+asserting non-zero results under the same policy, and treat a rendered-page positive
+control as necessary but not sufficient.
+
+**A canary built from the same ruleset it tests only catches regressions in that
+ruleset.** A static-analysis canary/fixture built by enumerating the SAME ruleset it
+tests can never detect a syntactic form the rule never covered. Pair a derived
+fixture with an independent enumeration of the construct's equivalent syntactic
+forms.
+
 ## E2E Fixtures
 
 ```python

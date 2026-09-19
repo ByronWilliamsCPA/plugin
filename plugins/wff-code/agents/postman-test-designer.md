@@ -161,6 +161,19 @@ where the request schema contains a `text` field with `minLength: 50`:
 - Body: `{"text": "too short"}`
 - Same test assertions as Sibling 1 (expects 422)
 
+**Validation ordering for 401/403 role-gate tests:** for any 401/403 assertion on an endpoint
+with a request body, construct a fully validator-legal body by reading the model's cross-field
+validators in code, not just the OpenAPI schema. Framework validation order (body parse, then
+dependency authz) short-circuits to 422 before the authz path ever runs when the body is
+schema-plausible but cross-field-invalid, which silently defeats the role-gate test.
+
+**Rate-limit pacing across ALL layers:** before sizing a collection's pacing, inventory every
+rate-limit layer in middleware (a burst cap and a separate sliding-window cap commonly coexist)
+and derive pacing from `ceil(window / limit)` over the whole suite, not burst-spacing intuition.
+Spacing requests to defeat only the burst cap still trips a second window-based cap once the
+suite's total request count exceeds it. Surface the resulting suite runtime so CI job timeouts
+are budgeted against it.
+
 ## Step 2: Newman execution on docker-host
 
 ### 2a. Locate the service configuration

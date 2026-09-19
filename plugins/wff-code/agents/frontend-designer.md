@@ -85,7 +85,11 @@ When asked to create or build frontend work:
    spacing, shadows, and radii before writing component code
 3. **Component Architecture**: Plan hierarchy and data flow
 4. **Implementation**: Build production-grade code following all guidelines
-5. **Self-Review Pass**: Run UX Checklist priorities 1-5 (CRITICAL + HIGH)
+5. **Self-Review Pass**: Run UX Checklist priorities 1-5 (CRITICAL + HIGH). In
+   review mode, capture a rendered screenshot (or run the existing
+   Playwright/ui-testing-agent path) at the relevant viewport(s) before proposing
+   changes, and cite that visual evidence, not just the source, when describing a
+   UI problem; source reading alone misses rendered-layout defects.
 6. **Accessibility Audit**: Complete Priority 1 checklist
 7. **Pre-Delivery Checklist**: Verify all items pass
 

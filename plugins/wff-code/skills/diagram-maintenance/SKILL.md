@@ -133,6 +133,13 @@ New diagram location: docs/architecture/diagrams/[LEVEL]/[FILENAME].puml
 
 3. After agent creates the file, offer SVG generation and optional AI visual
 
+> **Activity-diagram syntax traps (Obs 887):** a literal `;` inside a `:...;`
+> activity-node text span (common in LLM-written parentheticals) orphans the rest
+> of the node; reword or use a comma instead. A `note right:` note cannot span
+> physical lines; use the `note ... end note` block form for anything longer than
+> one line. Mark planned/aspirational nodes with fill color plus a legend, never
+> dashed borders.
+
 ---
 
 ## Mode: svg
@@ -169,6 +176,17 @@ reference implementation.
 > pairwise) before trusting the result. Never trust a generator's success message over an
 > independent check of the artifacts: a step that infers its output by "newest file in the
 > directory" is unsafe whenever a directory holds more than one artifact.
+
+> **Verify staleness by diffing text content, not raw bytes (Obs 909):** to check
+> whether a rendered SVG matches its source, diff extracted visible `<text>` content
+> (e.g. `grep -o '<text...>...</text>'` with tags stripped) and compare
+> text-element counts, never raw bytes. PlantUML injects per-render-random filter
+> IDs on filled/highlighted nodes, so a byte diff false-positives on every render even
+> when nothing changed. An error-render is detectable by source-code strings
+> (`@startuml`, `skinparam`, a "days old" version nag) appearing in the SVG's text.
+> This is a different check from the sibling byte-identical guard above: that one
+> catches mtime-glob-rename corruption between sibling files, this one catches a
+> single SVG drifting from its own source.
 
 ---
 
@@ -219,7 +237,9 @@ Steps:
 
 After any diagram operation, verify:
 
-- [ ] PUML syntax is valid (no unclosed blocks, invalid arrows)
+- [ ] PUML syntax is valid (no unclosed blocks, invalid arrows); run a `.puml`
+      lint (or `plantuml -checkonly`) before declaring done, flagging any `;`
+      inside a `:...;` activity-node span that is not the final terminator (Obs 887)
 - [ ] SVG regenerated for modified PUML files
 - [ ] No two sibling SVGs in the same directory are byte-identical
       (`md5sum *.svg | sort | uniq -d` returns nothing) -- guards against

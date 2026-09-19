@@ -291,6 +291,7 @@ This catches wrong directions before you've built on them. It's a 30-second inve
 | Stale context | Agent references outdated patterns or deleted code | Start fresh sessions when context drifts |
 | Missing examples | Agent invents a new style instead of following yours | Include one example of the pattern to follow |
 | Implicit knowledge | Agent doesn't know project-specific rules | Write it down in rules files; if it's not written, it doesn't exist |
+| Unreachable knowledge | Content is written down but nothing points to it (no reference from CLAUDE.md, a rule, or a skill an agent would load for the task) | Written but unreachable is functionally the same as not written; add the pointer, not just the content |
 | Silent confusion | Agent guesses when it should ask | Surface ambiguity explicitly using the confusion management patterns above |
 
 ## Common Rationalizations

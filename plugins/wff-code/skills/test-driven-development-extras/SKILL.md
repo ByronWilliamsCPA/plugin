@@ -19,6 +19,15 @@ Comparability bugs are silent. When a new feature computes a value that must equ
 
 Complexity-limit lint rules are stateful over the whole function, so a one-line behavioral change can cross a threshold the diff did not obviously approach. When the minimal implementation that satisfies the failing test adds a control-flow branch (an extra return, an extra nesting level, an extra boolean clause) to an already-dense function, it can trip cumulative-count rules: PLR0911 (returns), PLR0912 (branches), PLR0915 (statements), C901 (mccabe). Run the project linter before declaring GREEN. Under the no-suppression policy the only correct fix is to extract a helper, never an inline ignore; caught at GREEN this is cheap, caught at commit it is expensive. Also put new symbols a test needs (including private constants) in the top-level import block, not a function-local import, to avoid PLC0415.
 
+## Mutation evidence proves discrimination, not the scope of a claim citing it
+
+A mutation-testing result proves the covered mutants were killed; it does not
+prove the scope of whatever broader claim later cites it as support. When a
+report or comment cites "mutation testing confirms X" for a claim wider than
+the mutated lines actually exercise, verify the mutation run's scope matches
+the claim's scope before accepting the citation; otherwise the evidence is
+being asked to support more than it tested.
+
 ## Stage edits so the autofixer never breaks the next edit
 
 In a repo with a known PostToolUse autofix/formatter hook, the file is mutated between your edits. Splitting "add import" and "add usage" across two edits lets ruff `--fix` remove the import as unused (F401) after the first edit, so the second edit references an undefined name and the module fails at import (a NameError that only surfaces at test collection). Add an import and at least one use of it in the SAME edit, or add the consuming code first and the import second. Treat every intermediate edit as if it will be linted and autofixed immediately, because it will be: no intermediate state may contain a violation the autofixer will act on.

@@ -70,3 +70,7 @@ MATCH (a)-[r:CALLS]->(b) WHERE a.name = 'main' RETURN b.name
 3. `trace_path` needs exact names — use `search_graph(name_pattern=...)` first.
 4. `direction="outbound"` misses cross-service callers — use `direction="both"`.
 5. Results default to 10 per page — check `has_more` and use `offset`.
+6. Dedupe local clones of the same repo by git remote URL, not by directory
+   path — two different local paths (e.g. a main clone and a worktree) can
+   both point at the same remote, and path-based dedup will double-index or
+   miss the collision.

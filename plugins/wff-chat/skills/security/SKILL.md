@@ -65,6 +65,14 @@ If a task or doc claims pyproject config will suppress a CVE, treat it as a no-o
 the ID to the invocation command. Before writing any `[tool.<name>]` block, confirm the
 tool actually reads it; many such sections are documentation only.
 
+**Triage order: confirm scope before triaging a finding flood** (Obs 751)
+
+Before triaging an SCA/SAST finding flood, confirm the tool reads lockfiles/manifests, not the
+raw filesystem. A scanner that walks the filesystem rather than a lockfile can report hundreds
+of findings that are entirely `.venv`/`.worktrees`/`node_modules` noise. Check results for
+those paths, and re-run scoped to real manifests (`osv-scanner --lockfile`, `npm --prefix <dir>
+audit`) before spending effort triaging individual findings.
+
 **Step 3a: Enumerate every package ecosystem** (Obs 190)
 
 Dependabot scans every ecosystem present in the repo, so its alerts are NOT equivalent to
@@ -100,6 +108,14 @@ runtime before declaring a Python-gated CVE unfixable.
 gitleaks detect --source .
 trufflehog filesystem .
 ```
+
+Never run `detect-secrets scan --baseline .secrets.baseline <files>` against a file subset to
+"inspect findings"; it rewrites the baseline from just those files, silently deleting every
+entry for files not in the subset (Obs 590). Use
+`detect-secrets-hook --baseline .secrets.baseline <files>` for read-only enumeration instead
+(the baseline file must come first, then the target files/paths, or the command will not scan
+the intended subset). Prefer an inline `# pragma: allowlist secret` over a full
+baseline regeneration for a confirmed public-value false positive.
 
 ## Security Checklist
 

@@ -48,11 +48,37 @@ session, in-progress TODO items, current test state (pass/fail counts and the
 names of any failing tests), and the verbatim text of any active error. These
 feed the template fields below; gather them now so the doc is complete.
 
+If any work is being parked on a local branch, also record its tip SHA, its
+merge-base against `origin/<default>`, and the session's own unique commits
+(`git log origin/<default>..HEAD --oneline`), not just the tip: the tip alone
+does not show what is actually new.
+
+Before finalizing any closed-world claim ("X is still missing", "these are
+all still open"), verify it against the live merged tree or record set rather
+than recalling it: run `git fetch origin <default>` first so the comparison
+reflects current remote state, not a stale local ref, then run
+`git ls-tree origin/<default> -- <path>` (or the equivalent query against the
+actual register) to confirm presence or absence,
+and use a count over the full population, not a sampled few, when
+characterizing test failures or open items. A "What Remains" item about
+deployed state must carry the exact live-state probe command that confirms or
+falsifies it, not a prose `[VERIFY]` note alone.
+
+Check `~/.claude/logs/handoffs/` for a doc written in the last few hours; if
+one exists, note it so the doc's "Related / Superseding" line (below) can name
+the relationship and concurrent handoffs do not silently contradict each
+other.
+
 ### 2. Write the full handoff doc
 
 Write to the durable, gitignored runtime path (never committed; survives
 worktree removal and `/close-clean`). Run `mkdir -p ~/.claude/logs/handoffs`,
-then write `~/.claude/logs/handoffs/handoff-$(date +%Y%m%d-%H%M).md`.
+then write `~/.claude/logs/handoffs/handoff-$(date -u +%Y%m%dT%H%M%SZ).md`.
+Use UTC with an explicit `Z` suffix, not local time: a directory mixing UTC
+and local timestamps sorts out of chronological order. Seconds-level
+precision is required, not optional: a minute-level timestamp lets two
+concurrent handoff-writing sessions collide and silently overwrite each
+other's file within the same minute.
 
 The template's required fields are a **superset of the CLAUDE.md "Compact
 Instructions" preserve-list**, so a handoff is never weaker than an autocompact
@@ -60,6 +86,9 @@ summary. Every field is mandatory; write "none" rather than dropping a heading.
 
 ```markdown
 # Session Handoff: {date}
+
+Related / Superseding: {name/timestamp of a sibling handoff written in the
+last few hours, or "none"}
 
 ## Goal / Intent
 [The WHY. One or two sentences: what this session set out to achieve and the
@@ -69,7 +98,10 @@ leads.]
 ## Current State
 [Active branch; uncommitted/staged changes (notable unstaged work named);
 test state with pass/fail counts and specific failing test names; any active
-error message quoted VERBATIM, not paraphrased.]
+error message quoted VERBATIM, not paraphrased. For any in-flight work
+tracked by a PR or issue, cite that number as the PRIMARY identifier; describe
+branch/SHA only as a dated snapshot, since SHAs do not survive a rebase and
+PR/issue numbers do.]
 
 ## What Was Done
 [Completed items, each with the file:line it touched.]
@@ -88,8 +120,11 @@ verdict.]
 re-spending budget rediscovering a known dead end.]
 
 ## User Corrections / Constraints
-[User-specific corrections made this session ("no, do it this way instead") and
-any standing constraints the next session must honor.]
+**Standing constraints:** [one-line pointer to where durable rules already
+live (CLAUDE.md, `.claude/rules/`, memory); do not transcribe them here.]
+**Corrections made this session:** [only what is new this session ("no, do
+it this way instead"); anything already durable elsewhere is cited above, not
+repeated.]
 
 ## Files Touched
 [path:line for each, with one phrase on WHY it matters. Not a bare
@@ -123,6 +158,9 @@ Resuming work on {repo} (branch `{branch}`). Goal: {one-line goal}.
 First, refresh state before acting (the handoff is a snapshot, treat What
 Remains as a hypothesis):
     git fetch --all && git status --short && git log --oneline -5
+
+If this repo runs concurrent sessions, isolate in a worktree rather than a
+bare checkout: git worktree add .worktrees/<slug> {branch}
 
 Immediate next action: {the single most important next step}.
 Hard constraints: {any standing user constraint, or "none"}.

@@ -228,6 +228,14 @@ After completing a deprecation:
 - [ ] Replacement is production-proven and covers all critical use cases
 - [ ] Migration guide exists with concrete steps and examples
 - [ ] All active consumers have been migrated (verified by metrics/logs)
-- [ ] Old code, tests, documentation, and configuration are fully removed
+- [ ] Old code, tests, documentation, and configuration are fully removed,
+      including easily-missed removal surfaces: Makefile targets, architecture
+      diagrams, `.env.example`/env templates, and waiver/exception config files
 - [ ] No references to the deprecated system remain in the codebase
 - [ ] Deprecation notices are removed (they served their purpose)
+
+Before any "STOP if dependents found" guard fires, classify blast radius first:
+count and characterize the dependents (internal-only vs external-facing) before
+deciding whether to halt entirely or proceed with a scoped removal. A generic halt
+on any dependent treats a single internal caller the same as a wide external
+integration.

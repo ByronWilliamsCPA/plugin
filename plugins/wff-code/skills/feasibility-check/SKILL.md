@@ -34,7 +34,11 @@ Dispatch one Sonnet agent with the full spec as context and this prompt:
 > 1. **Core assumption**: What is the single most critical assumption this feature
 >    depends on? Is it verifiable before implementation starts?
 > 2. **Blocking dependencies**: Are there external systems, APIs, or permissions that
->    must exist before this can be built? List them or write "None".
+>    must exist before this can be built? List them or write "None". If the feature
+>    proposes mirroring, pinning to, or matching an exact upstream version, confirm that
+>    version is actually published/available before listing it as a viable option. An
+>    unverified "mirror the exact version" path is itself a blocking dependency until
+>    confirmed.
 > 3. **Minimum buildable version**: What is the smallest piece of this that delivers
 >    user value and can be shipped independently?
 > 4. **Verdict**: Choose one: GO (build as scoped), CONDITIONAL GO (build MVP only;

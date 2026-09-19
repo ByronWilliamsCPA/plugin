@@ -30,6 +30,17 @@ When invoked with no arguments or `analyze`:
 1. Auto-detect framework by checking pyproject.toml, pytest.ini, package.json
 2. Run `pytest --cov=src --cov-report=json:coverage.json --cov-branch -q`
 3. Parse coverage.json using the bundled parser script
+
+   **AST-based gap detection, not native coverage regions (Obs 1028):** Recent
+   coverage.py versions can emit exact per-function/class regions (with branch
+   summaries) in the coverage JSON, but the bundled parser
+   (`.claude/skills/test-coverage/scripts/parse_coverage.py`) does not yet consume
+   them: it always reconstructs function boundaries via `ast.parse`/`ast.walk`
+   over the source file and intersects them with `missing_lines` from the JSON,
+   regardless of coverage.py version. Per-function branch coverage is not computed
+   at all today; only per-file `percent_covered_branches` is read. Detecting and
+   preferring native regions when present is a possible future improvement, not
+   current behavior; do not describe this step as already using them.
 4. Identify files below the project threshold (default: 80%)
 5. For each under-covered file, identify uncovered functions via AST analysis
 6. Rank gaps by: (a) zero-coverage functions first, (b) lowest coverage %,
@@ -67,6 +78,31 @@ When invoked with `generate` or `generate <file_path>`:
    g. If reviewer returns NEEDS_WORK, pass the `issues` list verbatim to
       the writer as the revision brief (up to 2 rounds)
    h. If reviewer returns APPROVE, commit the test file
+
+   **Parallel test-writer isolation (Obs 1029):** When dispatching multiple
+   test-writer subagents into one shared worktree, instruct each to disable ini
+   addopts for the coverage-floor flag on subset runs and set a unique
+   coverage-data-file path per agent; the project's fail-under addopts spuriously
+   fails on file subsets and concurrent runs race on shared coverage artifacts.
+   Reserve the real full-suite coverage run for the orchestrator's final
+   verification.
+
+   **Coverage backfill must not silently ratify bugs (Obs 548):** When a
+   to-be-covered code path produces output that contradicts the documented
+   spec/domain expectation (e.g. backfilling coverage for a zero-coverage
+   identifier validator surfaces a non-standard check-digit routine), do not
+   assert the buggy value as correct. Write a CHARACTERIZATION test that locks
+   current behavior with a comment naming it as such, and surface the
+   discrepancy to the user as a separate finding.
+
+   **DB-typed code coverage via a compile shim (Obs 549):** To bring
+   Postgres-typed ORM/service code (e.g. a Postgres-specific UUID column type)
+   into the unit-tier coverage gate without a live database, register a
+   dialect-scoped SQLAlchemy compile shim (compile the Postgres type as a plain
+   CHAR column under the SQLite dialect) plus an in-memory SQLite session
+   fixture in conftest. The shimmed type round-trips as a plain string (assert
+   structure, not exact type/format); reserve value-level fidelity assertions
+   for the real-DB integration tier.
 4. Re-run full coverage and present before/after comparison
 
 ### Mode 3: Enforce

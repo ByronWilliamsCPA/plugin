@@ -59,6 +59,38 @@ Execute DevOps workflows: pipeline analysis → deployment strategy design → i
 
 ---
 
+## Live Infrastructure Discovery and Troubleshooting
+
+Before or during a live change, verify the reality of the infrastructure directly rather than
+trusting a runbook, a written config, or the shell's own working directory:
+
+1. **Remote-context container commands.** For any `docker --context <ctx> ...` invocation,
+   confirm the daemon host identity first (`docker --context <ctx> info --format '{{.Name}}'`)
+   and stage bind-mount source files on that host, not the shell host: `<src>` in
+   `-v <src>:<dst>` resolves on the daemon host. An unexpected directory (especially an
+   auto-created empty one) at a mount path means "wrong host," not a permissions problem.
+2. **Browser-delivered app containers and CSP.** Before designing a container for a
+   browser-delivered app, read the target ingress's CSP and enumerate every origin the client
+   fetches. Prefer moving calls same-origin over widening a shared policy; curl/health checks
+   never enforce CSP, so a naive "serve dist/" deployment can pass every liveness check while
+   silently blocking cross-origin fetches in the browser.
+3. **Build-context exclusions.** Before excluding any top-level directory (e.g. `docs/`) from a
+   Docker build context, grep the source tree for imports/reads crossing that boundary; a
+   directory that looks like documentation can still be a real build input.
+4. **Runbook troubleshooting for async loops.** When a runbook step depends on an async
+   discovery/reconciliation loop, its troubleshooting section must check the loop's own health
+   (worker/controller logs, a registry table for other recently-failed artifacts), not just the
+   one artifact in front of you. "Restart the worker" cannot fix a crash-looping discovery task;
+   document a single-artifact bypass as the surgical remedy instead.
+5. **Direct datastore writes.** Before writing directly to a running service's datastore instead
+   of its API, enumerate every consumer of that state and classify each as pull (polling, safe)
+   or push (needs an explicit reconnect step); a write visible to a polling consumer can still
+   never reach a push-based one, leaving a split-applied state.
+6. **New infrastructure objects.** Before creating a new infrastructure object, enumerate
+   existing objects of the same kind, find the nearest structural analogue, and diff proposed
+   values against it rather than against written guidance alone; copying a runbook's field
+   values verbatim can produce a working but non-conforming object.
+
 ## CI Compliance Audit Mode
 
 When invoked by the repo-compliance coordinator with audit or remediation mode context, this agent evaluates or remediates CI-* checks from the standards manifest.

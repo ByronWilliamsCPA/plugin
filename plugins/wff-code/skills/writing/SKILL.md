@@ -126,6 +126,14 @@ label appears adjacent to `/`; (2) every pre-existing path still resolves; (3) l
 greps use filename-preserving flags so file-exclusion filters actually bite (a
 filename-stripped `grep -oh` silently no-ops the exclusion and inflates leftover counts).
 
+### Never place a literal pipe inside a markdown table cell (Obs 1821)
+
+A literal `|` inside a table cell breaks the row even inside backticks; the table
+parser is not protected by a code span. Escape it as `\|` or restructure the
+sentence, including inside a backticked example like `git log -S`. Diagnostic tell:
+several simultaneous citation or linkage failures traced to entities in one row
+usually means the row itself is malformed, not the entities.
+
 ## Scope Boundaries
 
 Each agent owns exactly one concern. Do not ask agents to cross their boundaries:

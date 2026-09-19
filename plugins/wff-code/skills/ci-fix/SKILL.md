@@ -100,6 +100,38 @@ These require manual investigation before committing.
 
 No commit offer when blockers remain.
 
+## Git and PR Safety
+
+These rules apply whenever this skill's Completion step leads to a commit or push,
+and to the "Push (or force-push) to the PR branch" step referenced in Environment
+Notes below.
+
+### Procedural git rules are not optional (cross-cutting principle #2)
+
+Never run `git commit --no-verify` or otherwise bypass a pre-commit hook "because it
+would have passed anyway"; run the hook and let it pass. Always sign commits
+(`git commit -S`); never `--no-gpg-sign`. Never force-push to `main`, `master`, or
+`develop`. When force-pushing a PR branch, first run `git fetch origin <that-branch>`
+immediately beforehand: `--force-with-lease` validates against the LOCAL tracking
+ref, and without a fresh fetch it is worthless because the local ref can be stale
+relative to a concurrent push from another session (this repo lost a concurrent
+session's commits that way in PR #288, 2026-08-03). These are hard rules, not
+case-by-case judgment calls the agent gets to make per commit.
+
+### PR mergeability precondition (cross-cutting principle #1)
+
+When the current branch has an open PR and this skill is about to push a fix, check
+`gh pr view --json state,isDraft,mergeable,mergeStateStatus`. `mergeable` and
+`mergeStateStatus` are computed asynchronously and commonly read `null` or `UNKNOWN`
+on a freshly pushed branch: poll until the field is settled (non-null, not
+`UNKNOWN`) before evaluating it, and treat an unsettled read as "retry", never as
+"passed." Once settled, treat `mergeable: CONFLICTING` or `mergeStateStatus:
+DIRTY`/`BEHIND` as blocking: surface the conflict to the user before pushing further
+fix commits, since conflicting PRs do not reliably trigger GitHub Actions workflow
+runs on push, which turns further auto-fix attempts into silent no-ops at the merge
+gate. Use this field to REJECT, never to CONFIRM an all-green state, and only once
+settled.
+
 ## Environment Notes
 
 Real-world operational patterns for common CI failure scenarios.
@@ -188,7 +220,7 @@ Python files changed).
 
 ### SBOM license failures may be pre-existing policy debt (was: Obs 255, dependency-review-action)
 
-`dependency-review.yml` and the `actions/dependency-review-action` gate it ran were removed fleet-wide (2026-09): the action now requires paid GitHub Advanced Security (Code Security) and no longer functions on the free tier. This diff-scoped PR-time license/vulnerability gate is gone; the fleet's remaining license-compliance control is the post-merge, full-lockfile SBOM gate (`sbom.yml`, Trivy-based).
+`dependency-review.yml` and the `actions/dependency-review-action` gate it ran were removed fleet-wide (2026-09): the action now requires paid GitHub Advanced Security (Code Security) and no longer functions on the free tier. This diff-scoped PR-time license/vulnerability gate is gone; the fleet's remaining license-compliance control is `sbom.yml` (Trivy-based). It runs on pull requests that touch `pyproject.toml` or `uv.lock` and on pushes, not only post-merge, but its caller sets `fail-on-forbidden-licenses: false`, so license enforcement is advisory, not a blocking merge gate.
 
 The same "introduced by this PR" vs. "surfaced by this PR" distinction still applies to that gate: it evaluates the full lock file on every run, so a routine Renovate version bump can surface a license-policy gap that already existed in the base branch, not one the bump introduced.
 
@@ -249,6 +281,63 @@ npx --package renovate renovate-config-validator
 ```
 
 Treat every downstream config as unvalidated and run its dry-run or validator locally where one exists, instead of discovering defects one merge cycle at a time. Build the per-tool local-validation checklist as you go.
+
+### CI probe/oracle validity, alerting blind spots, and workflow dispatch hazards (Obs 762, 915, 1149, 1400, 1764, 1765, 1771, 1772, 1774, 1782)
+
+A failing count that stays unchanged across successive fixes means the fix targeted
+the wrong thing: compare a check's reported failure count/message against the
+previous head commit before pushing a second speculative fix (a secret-scanner's
+unchanged finding count across four commits was the tell that the wrong suspect was
+being fixed, not that "the fix didn't land").
+
+A local reproduction fixture must itself be positively controlled (assert it
+contains the artifact under test) before its negative result is trusted. A
+checkout-configuration verification fixture reported MISSING because the branch was
+staged-not-committed, not because the pattern under test was wrong.
+
+A log-extraction probe must anchor markers to position, not use a bare punctuation
+character as an alternative in a class that also occurs in surrounding text (a
+log-extraction regex matched its own filename scaffolding, returning a uniform
+"skipped" result for many runs that had actually passed). When a per-run sweep
+returns an identical value for every run, verify the probe against one
+independently-known-good run first.
+
+Know where a CI step writes its result before choosing a probe: stdout appears in
+the job log, a step-summary output appears only in the run summary/API, a
+job-output variable appears in the consumer's env echo. An empty log grep for a
+summary-writing step is an anti-oracle, not evidence that the gate never ran.
+
+A failing aggregate/upload gate names a symptom, not the cause: trace to the
+artifact's producer and its run condition (was the upstream job SKIPPED?) before
+treating it as a real regression. A coverage-upload workflow can fail repeatedly
+because its upstream test job was skipped (no relevant changes), not because
+coverage regressed. Once a CI failure is characterized as a pattern, grep for every
+instance across the changed file set and fix them together in one commit (a fixed
+file's CI failure can recur from a second, already-visible file the initial fix
+scope missed); when a local reproduction of the CI condition exists, run it against
+the WHOLE suite before pushing again, not just the file that failed.
+
+An in-run alert job can only report failures that reach job dispatch: a
+concurrency-gate cancellation, a disabled schedule, or a deleted secret produces no
+dispatch and is invisible to it (a backup workflow's alert job never fired across
+many days of cancellations because the runs were killed at the concurrency gate
+before any job dispatched). Pair scheduled jobs whose absence matters with an
+out-of-band liveness check on the expected artifact. Before dispatching or
+cancelling a run, check the workflow's concurrency block: with cancel-in-progress
+enabled, a new dispatch KILLS the in-flight run rather than queueing behind it
+(dispatching a workflow while a push-triggered run was active triggered
+cancel-in-progress and killed the in-flight run).
+
+Confirming an alert FIRES is not confirming it LANDS: check whether the destination
+label/issue is actually read (count open items on it and the age of the oldest
+untouched one). A release-alert job can fire correctly and the owner still not know,
+because the shared alert label already carried several stale untouched issues.
+
+A version-pinned CLI tool run via an ephemeral-runner launcher still resolves its
+dependency closure fresh on every invocation; diagnose a sudden no-change failure
+by checking for such launchers and add explicit dependency-bound constraints (a
+version-pinned ephemeral-runner tool invocation broke with zero repo changes because
+its unpinned dependency closure resolved a breaking release).
 
 ## GitHub Actions Authoring Anti-Patterns
 

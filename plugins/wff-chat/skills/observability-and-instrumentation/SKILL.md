@@ -217,6 +217,12 @@ documented taxonomy, and greppable in source, so a taxonomy cannot document
 events the code never emits) and `OPS-004` (log secret redaction, proven by a
 test rather than by the redaction helper's presence).
 
+**Scheduled/cron-job liveness needs completion-plus-lag, not the nominal slot.**
+For scheduled or cron-triggered jobs, alert on "no successful completion within
+[interval + platform scheduling lag tolerance]" rather than "last run timestamp
+within N minutes of the nominal cron slot"; platform-level scheduling jitter
+causes false-positive staleness alerts against the naive check.
+
 This skill is the human-facing narrative for instrumenting one service. The
 `OPS-*` checks are the durable half: they land in the compliance master log, get
 delta caching, fleet escalation at the 3-repo threshold, and staleness detection,
