@@ -32,8 +32,10 @@ synthesis to a model template.
 | Names specific models, wants stances (for/against), ad-hoc panel | Flexible panel | `workflows/panel.md` |
 | "refresh the model data", roster references dead models | Data refresh | `workflows/refresh-data.md` |
 
-When the request is ambiguous, default to tiered review at level 1 (it is
-nearly free) and say so.
+When the request is ambiguous, default to tiered review at level 1 and say
+so. Its estimated cost is under $0.01 per run, based on the script's
+assumption of 2,000 input and 1,500 output tokens per model; longer prompts
+cost more, up to the level's $0.50 cap.
 
 ## Engine quick reference
 
@@ -41,7 +43,7 @@ nearly free) and say so.
 uv run .claude/skills/panel/scripts/consensus_cli.py select --level 2 --domain architecture
 uv run .claude/skills/panel/scripts/consensus_cli.py estimate --level 3
 uv run .claude/skills/panel/scripts/consensus_cli.py run --prompt-file /tmp/q.txt --roster-file /tmp/roster.json
-uv run .claude/skills/panel/scripts/consensus_cli.py run --prompt-file /tmp/q.txt --models "openai/gpt-5.1,anthropic/claude-opus-4.6" --roles-file /tmp/roles.json
+uv run .claude/skills/panel/scripts/consensus_cli.py run --prompt-file /tmp/q.txt --models "openai/gpt-6-sol,anthropic/claude-opus-5.5" --roles-file /tmp/roles.json
 uv run .claude/skills/panel/scripts/consensus_cli.py refresh
 ```
 
@@ -54,11 +56,12 @@ input file, 3 every model failed.
 
 | Level | Roster | Cap |
 | --- | --- | --- |
-| 1 | 3 free models (failover may substitute cheap paid models) | $0.50 |
-| 2 | level 1 + 3 economy models (6 total) | $1.00 |
+| 1 | GPT-6 Luna (pinned, paid) + 2 free models; failover may substitute cheap paid models | $0.50 |
+| 2 | level 1 + GPT-6 Sol and Kimi K3 (pinned) + 1 economy model (6 total) | $1.00 |
 | 3 | level 2 + 2 high-cost models (8 total) | $10.00 |
 
-The script refuses to run past the cap; pass `--max-cost` only after the
+Pins come from `tier_pins` in `data/bands_config.json`; see
+`data/README.md`. The script refuses to run past the cap; pass `--max-cost` only after the
 user explicitly approves the higher spend. Models outside the curated
 catalog cannot be estimated; the run output carries a `warning` key listing
 them, and their cost is NOT capped. Surface that warning to the user.
