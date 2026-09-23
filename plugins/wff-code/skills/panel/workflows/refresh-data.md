@@ -24,12 +24,17 @@ never edits the dataset; benchmark scores and specializations are hand-rated.
    URL, and today's date. Remember the engine only reads the columns listed
    in `data/README.md`; the rest are reference metadata.
 
-4. **Verify.**
+4. **Check pins.** Every id under `tier_pins` in
+   `.claude/skills/panel/data/bands_config.json` must still be a row in
+   `models.csv`. A pin whose row was removed or renamed is skipped silently,
+   so update or remove it here.
+
+5. **Verify.**
 
    ```bash
    uv run .claude/skills/panel/scripts/consensus_cli.py select --level 1
    uv run pytest tests/unit/test_consensus_cli.py -q --no-cov
    ```
 
-5. **Commit** the dataset change with a `chore(panel): refresh model data`
+6. **Commit** the dataset change with a `chore(panel): refresh model data`
    message.
