@@ -292,9 +292,20 @@ def _env_truthy(name: str) -> bool:
 
     Case-insensitive; unset or any other value is False. Used for
     OPENROUTER_ZDR, which travels with the API key rather than the
-    invocation, so a flag alone would not be enough.
+    invocation, so a flag alone would not be enough. An unrecognized
+    non-empty value (e.g. 'on', 'y') warns on stderr, since silently
+    disabling a privacy control is easy to miss.
     """
-    return os.environ.get(name, "").strip().lower() in ZDR_TRUTHY_VALUES
+    raw = os.environ.get(name, "").strip().lower()
+    if raw and raw not in ZDR_TRUTHY_VALUES and raw not in {"0", "false", "no"}:
+        emit(
+            {
+                "warning": f"{name}={raw!r} is not recognized; ZDR mode is OFF. "
+                "Use 1, true, or yes to enable it."
+            },
+            stream=sys.stderr,
+        )
+    return raw in ZDR_TRUTHY_VALUES
 
 
 def _read_cache(cache: Path) -> set[str] | None:

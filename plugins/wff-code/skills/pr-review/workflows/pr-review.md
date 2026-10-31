@@ -334,8 +334,12 @@ vocabulary inconsistency) scored above 65 is clamped to 65.
 run the filter, use its output as Step 7's input, and do not substitute judgment for
 it regardless of what the Step 6 scoring agent returned.
 
+Write the Step 6 scored array to `findings.json` first, then run the filter and
+write its output to `findings.clamped.json`. Step 7 must consume
+`findings.clamped.json`, not the original inline array.
+
 ```bash
-jq '[.[] | if (.description | test("PRDesc: (Missing motivation section|Bug fix PR does not reference an issue number|changed but not mentioned in description|acceptance.criteria)"; "i")) then .score = ([.score, 49] | min) elif (.description | test("doc count|off-by-one|Bash permission|SKILL\\.md frontmatter|style/vocabulary|vocabulary inconsistency"; "i")) then .score = ([.score, 65] | min) else . end]' findings.json
+jq '[.[] | if (.description | test("PRDesc: (Missing motivation section|Bug fix PR does not reference an issue number|changed but not mentioned in description|acceptance.criteria)"; "i")) then .score = ([.score, 49] | min) elif (.description | test("doc count|off-by-one|Bash permission|SKILL\\.md frontmatter|style/vocabulary|vocabulary inconsistency"; "i")) then .score = ([.score, 65] | min) else . end]' findings.json > findings.clamped.json
 ```
 
 Running this filter on an already-compliant array is a no-op; running it on a
@@ -516,7 +520,10 @@ Step 4's Sonar fetch, Step 5's agent dispatch, Step 8's bot polling), go gather 
 before emitting the report; do not emit a row you did not verify and do not omit the
 row. If the External Claims table cannot be confirmed as run (Agent J item 7, from
 Step 5), go confirm it before emitting the report. Refuse to output the report until
-both blocks are populated from data actually gathered, not inferred or guessed.**
+both blocks are populated from data actually gathered, not inferred or guessed. A
+claim whose retrieval fails (failed `gh api` call, unreachable doc) after bounded
+retries (max 3) is recorded as `unverified` with the error; that counts as
+populated and does not block the report.**
 
 ```markdown
 # PR Review: {PR_TITLE}
@@ -564,7 +571,7 @@ never be reported as if nothing was found.*
 
 | Claim | Location | Retrieval method | Result |
 | --- | --- | --- | --- |
-| {quoted external claim} | {file:line, or "PR body"} | {gh api path / doc fetch / other command actually run} | {confirmed / contradicted: actual value} |
+| {quoted external claim} | {file:line, or "PR body"} | {gh api path / doc fetch / other command actually run} | {confirmed / contradicted: actual value / unverified: retrieval error after retries} |
 
 ---
 
