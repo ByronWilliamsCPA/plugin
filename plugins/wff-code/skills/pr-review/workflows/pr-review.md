@@ -312,6 +312,37 @@ tier.
 
 ---
 
+## Step 6b: Clamp Confidence Scores
+
+Mechanically enforce the caps that Step 6 only asks the scoring subagent to honor.
+**This step is orchestrator-executed, not a subagent call:** run the filter below
+directly, on the same JSON findings array that passes from Step 6 into Step 7. A
+rubric hint in a Haiku agent's prompt is not an enforcement mechanism; this step is
+the enforcement, independent of whether the Step 6 subagent applied its own cap.
+
+**Consumes:** the scored findings array from Step 6 (`agent source, file, line,
+description, score`, the same shape Step 7's dedup prompt receives below).
+
+**Produces:** the same array with two caps mechanically applied: any process-hygiene
+finding (Agent J's PR-body checks: unchecked acceptance-criteria checkboxes, missing
+`Fixes #N` reference, missing motivation section, "changed but not mentioned in
+description") scored above 49 is clamped to 49; any doc-nit finding (doc count
+off-by-one, missing Bash permission allow rule, SKILL.md frontmatter gap, style or
+vocabulary inconsistency) scored above 65 is clamped to 65.
+
+**Decision the caller must make:** none. This is a mechanical, non-optional check:
+run the filter, use its output as Step 7's input, and do not substitute judgment for
+it regardless of what the Step 6 scoring agent returned.
+
+```bash
+jq '[.[] | if (.description | test("PRDesc: (Missing motivation section|Bug fix PR does not reference an issue number|changed but not mentioned in description|acceptance.criteria)"; "i")) then .score = ([.score, 49] | min) elif (.description | test("doc count|off-by-one|Bash permission|SKILL\\.md frontmatter|style/vocabulary|vocabulary inconsistency"; "i")) then .score = ([.score, 65] | min) else . end]' findings.json
+```
+
+Running this filter on an already-compliant array is a no-op; running it on a
+subagent that ignored the Step 6 caps is what actually enforces them.
+
+---
+
 ## Step 7: Deduplicate (Haiku agent)
 
 Pass all scored findings from all agents to a single Haiku agent:
@@ -474,6 +505,19 @@ the push-then-react-to-new-comments cycle.
 Present the following report in the terminal. Do NOT post to GitHub
 automatically; the user can decide whether to post.
 
+**The Review Coverage and External Claims Dereferenced blocks below are required
+report fields, not optional decoration. Assembling and emitting the final report
+without either block is a failure of this step, full stop: a bot's green check or
+empty result is exactly as consistent with "the review never ran" (rate-limited,
+scope-excluded, never-analyzed branch) as with "the review ran and found nothing,"
+and this step exists to stop conflating the two. If a Review Coverage row cannot be
+populated from data already gathered earlier in this run (Step 1's Copilot check,
+Step 4's Sonar fetch, Step 5's agent dispatch, Step 8's bot polling), go gather it
+before emitting the report; do not emit a row you did not verify and do not omit the
+row. If the External Claims table cannot be confirmed as run (Agent J item 7, from
+Step 5), go confirm it before emitting the report. Refuse to output the report until
+both blocks are populated from data actually gathered, not inferred or guessed.**
+
 ```markdown
 # PR Review: {PR_TITLE}
 {OWNER}/{REPO}#{PR_NUMBER} | {BASE_BRANCH} ← {HEAD_BRANCH}
@@ -492,6 +536,35 @@ automatically; the user can decide whether to post.
 - **Agents run**: {list of agents that fired}
 - **Agent findings**: {N} ({critical} Critical, {important} Important,
   {suggested} Suggested, {informational} Informational)
+
+## Review Coverage (required; do not omit)
+*A count of what was actually examined, not a pass/fail label. A reviewer or gate
+that never ran gets a row reading `0` with a `never ran` reason, never an omitted
+row: an omitted row is indistinguishable from a clean pass, which is the exact
+failure this block exists to close.*
+
+| Reviewer / Gate | Examined | Status |
+| --- | --- | --- |
+| GitHub Copilot | {N review comment bodies fetched} | {ran / never ran / rate-limited / timed out} |
+| CodeRabbit | {N review comment bodies fetched} | {ran / never ran / rate-limited / timed out} |
+| SonarQube Issues | {N issues fetched from the queried project/PR} | {ran / not configured / MCP+REST both unreachable} |
+| SonarQube Hotspots | {M hotspots fetched} | {ran / not configured / MCP+REST both unreachable} |
+| CI checks | {N checks enumerated via gh pr checks} | {ran / unavailable} |
+| Agent {A..M, one row per agent Step 3 activated} | {N steps executed, or N findings emitted, whichever this run actually produced} | {completed / timed out / errored / skipped by Step 3} |
+
+---
+
+## External Claims Dereferenced ({N})
+*Required. Agent J item 7 (Step 5) dereferences external citations found in the PR
+body or diff, token scopes, regulatory citations, log-level claims, a generated
+artifact's provenance, against live state. This table's presence is mandatory even
+when it is empty: an empty table ("No external claims found in PR body or diff.")
+is a valid, complete result. A MISSING table means the check never ran, and must
+never be reported as if nothing was found.*
+
+| Claim | Location | Retrieval method | Result |
+| --- | --- | --- | --- |
+| {quoted external claim} | {file:line, or "PR body"} | {gh api path / doc fetch / other command actually run} | {confirmed / contradicted: actual value} |
 
 ---
 

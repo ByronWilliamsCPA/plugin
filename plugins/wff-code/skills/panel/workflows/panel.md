@@ -15,9 +15,9 @@ Ad-hoc multi-model consultation: any models, any roles or stances.
    ```bash
    cat > /tmp/panel-roles.json << 'ROLES'
    {
-     "openai/gpt-5.1": "Argue FOR the proposal. Steelman it.",
-     "anthropic/claude-opus-4.6": "Argue AGAINST the proposal. Find the flaws.",
-     "deepseek/deepseek-chat:free": "technical_validator"
+     "openai/gpt-6-sol": "Argue FOR the proposal. Steelman it.",
+     "anthropic/claude-opus-5.5": "Argue AGAINST the proposal. Find the flaws.",
+     "z-ai/glm-5.2:free": "technical_validator"
    }
    ROLES
    ```
@@ -32,7 +32,7 @@ Ad-hoc multi-model consultation: any models, any roles or stances.
    ```bash
    uv run .claude/skills/panel/scripts/consensus_cli.py run \
      --prompt-file /tmp/panel-prompt.txt \
-     --models "openai/gpt-5.1,anthropic/claude-opus-4.6,deepseek/deepseek-chat:free" \
+     --models "openai/gpt-6-sol,anthropic/claude-opus-5.5,z-ai/glm-5.2:free" \
      --roles-file /tmp/panel-roles.json \
      --max-cost 2.00
    ```
