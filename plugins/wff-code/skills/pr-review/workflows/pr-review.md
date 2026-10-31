@@ -339,7 +339,7 @@ write its output to `findings.clamped.json`. Step 7 must consume
 `findings.clamped.json`, not the original inline array.
 
 ```bash
-jq '[.[] | if (.description | test("PRDesc: (Missing motivation section|Bug fix PR does not reference an issue number|changed but not mentioned in description|acceptance.criteria)"; "i")) then .score = ([.score, 49] | min) elif (.description | test("doc count|off-by-one|Bash permission|SKILL\\.md frontmatter|style/vocabulary|vocabulary inconsistency"; "i")) then .score = ([.score, 65] | min) else . end]' findings.json > findings.clamped.json
+jq '[.[] | if (.description | test("PRDesc: (Missing motivation section|Bug fix PR does not reference an issue number|.+ changed but not mentioned in description|acceptance.criteria)"; "i")) then .score = ([.score, 49] | min) elif (.description | test("doc count off-by-one|off-by-one in (the )?doc|Bash permission|SKILL\\.md frontmatter|style/vocabulary|vocabulary inconsistency"; "i")) then .score = ([.score, 65] | min) else . end]' findings.json > findings.clamped.json
 ```
 
 Running this filter on an already-compliant array is a no-op; running it on a
@@ -467,6 +467,9 @@ whether its review body has content: check-state and work-done are independent s
    "verify before include" posture to qualitative bot claims, not just quantitative ones.
 6. Run each surviving comment through the same confidence scoring as Step 6
 7. Merge into the existing `FINDINGS` list and deduplicate (Step 7)
+8. Re-apply the Step 6b clamp to the merged list (write it to `findings.json`, run
+   the Step 6b filter, and use `findings.clamped.json` as `FINDINGS`) so bot-supplied
+   process or doc-nit findings get the same caps before Step 9
 
 **Stale PR description detector:**
 
